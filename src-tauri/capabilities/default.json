@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/tauri-apps/tauri/dev/crates/tauri-utils/schema.json",
+  "identifier": "default",
+  "description": "Default capability for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "fs:allow-document-read",
+      "allow": [{ "path": "$DOCUMENT/英语一号/**" }]
+    },
+    {
+      "identifier": "fs:allow-document-write",
+      "allow": [{ "path": "$DOCUMENT/英语一号/**" }]
+    },
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install",
+    "process:allow-restart"
+  ]
+}
