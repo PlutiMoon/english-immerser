@@ -1,14 +1,32 @@
 import { useRef, useState } from "react";
 import { remove } from "@tauri-apps/plugin-fs";
-import { useRecordingStore } from "@/stores/recordingStore";
 import { formatSeconds } from "@/utils/formatSeconds";
 import type { RecordingFile } from "@/types";
 
-export default function RecordingsList() {
-  const { history, removeFromHistory } = useRecordingStore();
+interface RecordingsListProps {
+  history: RecordingFile[];
+  loaded: boolean;
+  onPlay: (file: RecordingFile) => void;
+  onDelete: (path: string) => void;
+}
+
+export default function RecordingsList({
+  history,
+  loaded,
+  onPlay,
+  onDelete,
+}: RecordingsListProps) {
   const [playing, setPlaying] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  if (!loaded) {
+    return (
+      <div className="rounded-xl bg-gray-50 border border-gray-100 p-6 text-center text-sm text-gray-400">
+        加载中...
+      </div>
+    );
+  }
 
   if (history.length === 0) {
     return (
@@ -19,6 +37,7 @@ export default function RecordingsList() {
   }
 
   const handlePlay = (file: RecordingFile) => {
+    onPlay(file);
     const audio = audioRef.current;
     if (!audio) return;
     if (playing === file.path) {
@@ -35,7 +54,7 @@ export default function RecordingsList() {
     if (deleteTarget === file.path) {
       try {
         await remove(file.path);
-        await removeFromHistory(file.path);
+        onDelete(file.path);
       } catch (err) {
         console.error("Delete failed:", err);
       }

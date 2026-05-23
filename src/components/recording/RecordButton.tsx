@@ -1,13 +1,19 @@
-import { useRecordingStore } from "@/stores/recordingStore";
+import type { RecordingStatus } from "@/types";
 import { formatSeconds } from "@/utils/formatSeconds";
 
 interface RecordButtonProps {
+  status: RecordingStatus;
+  duration: number;
   onStart: () => void;
   onStop: () => void;
 }
 
-export default function RecordButton({ onStart, onStop }: RecordButtonProps) {
-  const { status, duration } = useRecordingStore();
+export default function RecordButton({
+  status,
+  duration,
+  onStart,
+  onStop,
+}: RecordButtonProps) {
   const isRecording = status === "recording";
   const isRequesting = status === "requesting";
 
@@ -50,7 +56,9 @@ export default function RecordButton({ onStart, onStop }: RecordButtonProps) {
             <p className="text-2xl font-mono font-bold text-red-600 tabular-nums">
               {formatSeconds(duration)}
             </p>
-            <p className="text-xs text-red-400 mt-0.5 animate-pulse">● 录音中</p>
+            <p className="text-xs text-red-400 mt-0.5 animate-pulse">
+              ● 录音中
+            </p>
           </>
         )}
         {status === "idle" && (

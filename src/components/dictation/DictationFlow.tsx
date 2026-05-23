@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { useDictationStore } from "@/stores/dictationStore";
+import type { DictationStep } from "@/types";
 import { formatSeconds } from "@/utils/formatSeconds";
 
 const STEPS: { key: string; label: string }[] = [
@@ -11,10 +11,27 @@ const STEPS: { key: string; label: string }[] = [
 
 const STEP_KEYS = STEPS.map((s) => s.key);
 
-export default function DictationFlow({ onFinish }: { onFinish: () => void }) {
-  const { step, source, keywords, retellText, setStep, setKeywords, setRetellText } =
-    useDictationStore();
+interface DictationFlowProps {
+  step: DictationStep;
+  source: { name: string; path: string } | null;
+  keywords: string;
+  retellText: string;
+  setStep: (step: DictationStep) => void;
+  setKeywords: (keywords: string) => void;
+  setRetellText: (text: string) => void;
+  onFinish: () => void;
+}
 
+export default function DictationFlow({
+  step,
+  source,
+  keywords,
+  retellText,
+  setStep,
+  setKeywords,
+  setRetellText,
+  onFinish,
+}: DictationFlowProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -74,12 +91,12 @@ export default function DictationFlow({ onFinish }: { onFinish: () => void }) {
 
   const goNext = () => {
     const next = STEP_KEYS[currentIdx + 1];
-    if (next) setStep(next as typeof step);
+    if (next) setStep(next as DictationStep);
   };
 
   const goPrev = () => {
     const prev = STEP_KEYS[currentIdx - 1];
-    if (prev) setStep(prev as typeof step);
+    if (prev) setStep(prev as DictationStep);
   };
 
   return (

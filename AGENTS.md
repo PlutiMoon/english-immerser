@@ -36,7 +36,7 @@
 ## 开发规范
 
 - 组件按功能模块划分，每个模块一个文件夹
-- 使用 Zustand store 管理全局状态，组件内部状态用 useState
+- App.tsx 集中管理全局数据，通过 `data` + `setData` props 下发各场景
 - TypeScript 严格模式，所有类型在 `src/types/` 下定义
 - Tailwind 类名按功能分组（布局 → 颜色 → 间距 → 排版）
 - 组件文件名使用 PascalCase，工具函数使用 camelCase

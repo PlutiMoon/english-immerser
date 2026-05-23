@@ -1,20 +1,24 @@
 import { useState } from "react";
-import { useDictationStore } from "@/stores/dictationStore";
-import type { DictationSession } from "@/stores/dictationStore";
+import type { DictationSession } from "@/types";
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
-export default function HistoryList() {
-  const { history, loaded, deleteSession } = useDictationStore();
+interface HistoryListProps {
+  history: DictationSession[];
+  loaded: boolean;
+  onDelete: (id: string) => Promise<void>;
+}
+
+export default function HistoryList({ history, loaded, onDelete }: HistoryListProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const handleDelete = (session: DictationSession) => {
     if (deleteTarget === session.id) {
-      deleteSession(session.id).catch(console.error);
+      onDelete(session.id).catch(console.error);
       if (expanded === session.id) setExpanded(null);
       setDeleteTarget(null);
     } else {

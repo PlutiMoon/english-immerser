@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
-import { useRecordingStore } from "@/stores/recordingStore";
+import type { RecordingFile } from "@/types";
 import { formatSeconds } from "@/utils/formatSeconds";
 
 function nowFilename(): string {
@@ -10,8 +10,21 @@ function nowFilename(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.webm`;
 }
 
-export default function PlaybackPanel() {
-  const { playbackUrl, blob, duration, addToHistory, reset } = useRecordingStore();
+interface PlaybackPanelProps {
+  blob: Blob | null;
+  playbackUrl: string | null;
+  duration: number;
+  onSave: (file: RecordingFile) => void;
+  onReset: () => void;
+}
+
+export default function PlaybackPanel({
+  blob,
+  playbackUrl,
+  duration,
+  onSave,
+  onReset,
+}: PlaybackPanelProps) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
@@ -38,7 +51,7 @@ export default function PlaybackPanel() {
       const filePath = `${dir}/${name}`;
       const arrayBuf = await blob.arrayBuffer();
       await writeFile(filePath, new Uint8Array(arrayBuf));
-      await addToHistory({
+      onSave({
         name,
         path: filePath,
         duration: Math.round(duration),
@@ -55,7 +68,7 @@ export default function PlaybackPanel() {
 
   const handleDiscard = () => {
     if (playbackUrl) URL.revokeObjectURL(playbackUrl);
-    reset();
+    onReset();
   };
 
   return (

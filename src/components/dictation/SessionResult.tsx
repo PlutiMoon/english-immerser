@@ -1,8 +1,16 @@
-import { useDictationStore } from "@/stores/dictationStore";
+interface SessionResultProps {
+  sourceName?: string | null;
+  keywords: string;
+  retellText: string;
+  onNewSession: () => void;
+}
 
-export default function SessionResult({ onNewSession }: { onNewSession: () => void }) {
-  const { keywords, retellText, source } = useDictationStore();
-
+export default function SessionResult({
+  sourceName,
+  keywords,
+  retellText,
+  onNewSession,
+}: SessionResultProps) {
   return (
     <div className="space-y-5">
       <div className="rounded-xl bg-white border border-gray-100 p-5 space-y-4">
@@ -11,8 +19,8 @@ export default function SessionResult({ onNewSession }: { onNewSession: () => vo
           <h3 className="text-lg font-semibold text-gray-800">已完成，已保存</h3>
         </div>
 
-        {source && (
-          <p className="text-xs text-gray-400">素材：{source.name}</p>
+        {sourceName && (
+          <p className="text-xs text-gray-400">素材：{sourceName}</p>
         )}
 
         {keywords.trim() && (

@@ -1,19 +1,28 @@
-import { useState, useEffect } from "react";
-import { useWritingStore } from "@/stores/writingStore";
-import type { WritingFileInfo } from "@/stores/writingStore";
+import { useState } from "react";
+import type { WritingFileInfo } from "@/types";
 
-export default function FileList() {
-  const { files, currentFile, loading, loadFiles, selectFile, newFile, deleteFile } =
-    useWritingStore();
+interface FileListProps {
+  files: WritingFileInfo[];
+  currentFile: WritingFileInfo | null;
+  loading: boolean;
+  onSelect: (file: WritingFileInfo) => void;
+  onDelete: (file: WritingFileInfo) => void;
+  onNew: () => void;
+}
+
+export default function FileList({
+  files,
+  currentFile,
+  loading,
+  onSelect,
+  onDelete,
+  onNew,
+}: FileListProps) {
   const [deleteTarget, setDeleteTarget] = useState<WritingFileInfo | null>(null);
-
-  useEffect(() => {
-    loadFiles();
-  }, [loadFiles]);
 
   const handleDelete = (f: WritingFileInfo) => {
     if (deleteTarget?.path === f.path) {
-      deleteFile(f).catch(console.error);
+      onDelete(f);
       setDeleteTarget(null);
     } else {
       setDeleteTarget(f);
@@ -27,7 +36,7 @@ export default function FileList() {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-gray-700">文章列表</h3>
         <button
-          onClick={newFile}
+          onClick={onNew}
           className="text-xs text-primary-600 hover:text-primary-700 font-medium"
         >
           + 新建
@@ -53,7 +62,7 @@ export default function FileList() {
                 }`}
               >
                 <button
-                  onClick={() => selectFile(f).catch(console.error)}
+                  onClick={() => onSelect(f)}
                   className="flex-1 text-left truncate"
                 >
                   {f.name}

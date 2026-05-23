@@ -1,18 +1,40 @@
-import { useEffect, useState, Suspense, lazy } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
-import AppLayout from "./components/layout/AppLayout";
+import { useEffect, useState, useCallback, Suspense, lazy } from "react";
+import type { Update } from "@tauri-apps/plugin-updater";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
+import Sidebar from "./components/layout/Sidebar";
+import ErrorBoundary from "./components/shared/ErrorBoundary";
 import ToastContainer from "./components/shared/ToastContainer";
 import UpdateModal from "./components/shared/UpdateModal";
-import ErrorBoundary from "./components/shared/ErrorBoundary";
-import { check, type Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { loadAllData, saveAllData } from "./data";
+import type { AppData, ToastType, ToastItem } from "./types";
+import { DEFAULT_APP_DATA } from "./types";
 
-const HomePage = lazy(() => import("./pages/HomePage"));
-const PlayerPage = lazy(() => import("./pages/PlayerPage"));
-const VocabularyPage = lazy(() => import("./pages/VocabularyPage"));
-const WritingPage = lazy(() => import("./pages/WritingPage"));
-const RecordingPage = lazy(() => import("./pages/RecordingPage"));
-const DictationPage = lazy(() => import("./pages/DictationPage"));
+// --- Scenes ---
+export type Scene = "hub" | "player" | "vocabulary" | "writing" | "recording" | "dictation";
+
+export interface SceneProps {
+  data: AppData;
+  setData: (patch: Partial<AppData>) => void;
+  toast: (message: string, type?: ToastType, duration?: number) => void;
+  onSceneChange: (scene: Scene) => void;
+}
+
+const HubScene = lazy(() => import("./scenes/HubScene"));
+const PlayerScene = lazy(() => import("./scenes/PlayerScene"));
+const VocabularyScene = lazy(() => import("./scenes/VocabularyScene"));
+const WritingScene = lazy(() => import("./scenes/WritingScene"));
+const RecordingScene = lazy(() => import("./scenes/RecordingScene"));
+const DictationScene = lazy(() => import("./scenes/DictationScene"));
+
+const SCENE_COMPONENTS: Record<Scene, React.LazyExoticComponent<React.ComponentType<any>>> = {
+  hub: HubScene,
+  player: PlayerScene,
+  vocabulary: VocabularyScene,
+  writing: WritingScene,
+  recording: RecordingScene,
+  dictation: DictationScene,
+};
 
 function PageFallback() {
   return (
@@ -28,26 +50,54 @@ function PageFallback() {
   );
 }
 
+// --- App ---
 export default function App() {
-  const location = useLocation();
+  const [scene, setScene] = useState<Scene>("hub");
+  const [data, setDataState] = useState<AppData>(DEFAULT_APP_DATA);
+  const [loaded, setLoaded] = useState(false);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [updateInfo, setUpdateInfo] = useState<Update | null>(null);
   const [downloading, setDownloading] = useState(false);
 
+  // Load all data once on mount
+  useEffect(() => {
+    loadAllData().then(d => {
+      setDataState(d);
+      setLoaded(true);
+    });
+  }, []);
+
+  // Update check (delayed)
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
         const update = await check();
-        if (update) {
-          setUpdateInfo(update);
-        }
-      } catch (err) {
-        console.error("Failed to check for updates:", err);
-      }
+        if (update) setUpdateInfo(update);
+      } catch { /* noop */ }
     }, 3000);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleUpdate = async () => {
+  // Centralized setData with auto-save
+  const setData = useCallback((patch: Partial<AppData>) => {
+    setDataState(prev => {
+      const next = { ...prev, ...patch };
+      saveAllData(next).catch(console.error);
+      return next;
+    });
+  }, []);
+
+  // Toast
+  const addToast = useCallback((message: string, type: ToastType = "info", duration = 3000) => {
+    const id = crypto.randomUUID();
+    setToasts(prev => [...prev, { id, message, type, duration }]);
+    if (duration > 0) {
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
+    }
+  }, []);
+
+  // Update handlers
+  const handleUpdate = useCallback(async () => {
     if (!updateInfo) return;
     setDownloading(true);
     try {
@@ -57,11 +107,24 @@ export default function App() {
       console.error("Failed to download and install update:", err);
       setDownloading(false);
     }
-  };
+  }, [updateInfo]);
+
+  if (!loaded) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto mb-3 h-10 w-10 rounded-full border-4 border-primary-200 border-t-primary-500 animate-spin" />
+          <p className="text-sm text-gray-400">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const ActiveScene = SCENE_COMPONENTS[scene];
 
   return (
     <>
-      <ToastContainer />
+      <ToastContainer toasts={toasts} onRemove={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
       {updateInfo && (
         <UpdateModal
           version={updateInfo.version}
@@ -71,22 +134,23 @@ export default function App() {
           downloading={downloading}
         />
       )}
-      <AppLayout>
-        <div key={location.pathname} className="animate-fade-in">
-          <ErrorBoundary>
-          <Suspense fallback={<PageFallback />}>
-            <Routes location={location}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/player" element={<PlayerPage />} />
-              <Route path="/vocabulary" element={<VocabularyPage />} />
-              <Route path="/writing" element={<WritingPage />} />
-              <Route path="/recording" element={<RecordingPage />} />
-              <Route path="/dictation" element={<DictationPage />} />
-            </Routes>
-          </Suspense>
-          </ErrorBoundary>
-        </div>
-      </AppLayout>
+      <div className="flex h-screen w-screen overflow-hidden">
+        <Sidebar scene={scene} onSceneChange={setScene} />
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+          <div className="animate-fade-in">
+            <ErrorBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <ActiveScene
+                  data={data}
+                  setData={setData}
+                  toast={addToast}
+                  onSceneChange={setScene}
+                />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        </main>
+      </div>
     </>
   );
 }

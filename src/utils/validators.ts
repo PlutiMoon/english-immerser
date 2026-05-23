@@ -3,9 +3,9 @@ import type {
   CheckInRecord,
   RecordingFile,
   PodcastPreset,
+  DictationSession,
+  WritingFileInfo,
 } from "@/types";
-import type { DictationSession } from "@/stores/dictationStore";
-import type { WritingFileInfo } from "@/stores/writingStore";
 
 /**
  * Type guard for VocabularyWord

@@ -25,32 +25,47 @@ export interface VocabularyWord {
   id: string;
   word: string;
   englishDefinition: string;
-  /** 用户自己造的例句，复习时优先展示 */
   selfSentence: string;
-  source: string; // 来自哪个素材（音频/文章标题）
-  createdAt: string; // ISO date
+  source: string;
+  createdAt: string;
   lastReviewedAt: string | null;
   reviewCount: number;
 }
-
-// ============================================================
-// 自由写作 & 三句日记
-// ============================================================
 
 // ============================================================
 // 听写与复述
 // ============================================================
 
 export type DictationStep =
-  | "listen" // 播放音频
-  | "keywords" // 输入关键词
-  | "relisten" // 再播放
-  | "retell"; // 用自己的话复述
+  | "listen"
+  | "keywords"
+  | "relisten"
+  | "retell";
 
 export interface DictationResult {
   step: DictationStep;
   userInput: string;
   timestamp: string;
+}
+
+export interface DictationSession {
+  id: string;
+  date: string;
+  sourceName: string;
+  sourcePath: string;
+  keywords: string;
+  retellText: string;
+  results: DictationResult[];
+}
+
+// ============================================================
+// 自由写作
+// ============================================================
+
+export interface WritingFileInfo {
+  name: string;
+  path: string;
+  updatedAt: string;
 }
 
 // ============================================================
@@ -61,15 +76,13 @@ export type MediaSourceType = "file" | "url" | "podcast";
 
 export interface MediaSource {
   type: MediaSourceType;
-  /** 本地文件路径 或 在线 URL */
   path: string;
-  /** 显示名称 */
   name: string;
 }
 
 export interface SubtitleLine {
-  start: number; // seconds
-  end: number; // seconds
+  start: number;
+  end: number;
   text: string;
 }
 
@@ -109,3 +122,40 @@ export interface PromptItem {
   text: string;
   hint?: string;
 }
+
+// ============================================================
+// UI 类型
+// ============================================================
+
+export type ToastType = "success" | "error" | "info" | "warning";
+
+export interface ToastItem {
+  id: string;
+  message: string;
+  type: ToastType;
+  duration: number;
+}
+
+// ============================================================
+// 应用全局数据（游戏存档）
+// ============================================================
+
+export interface AppData {
+  vocabulary: VocabularyWord[];
+  checkin: CheckInRecord[];
+  dictation: DictationSession[];
+  podcastFeeds: PodcastPreset[];
+  recordingHistory: RecordingFile[];
+  writingFiles: WritingFileInfo[];
+  player: { source: MediaSource | null };
+}
+
+export const DEFAULT_APP_DATA: AppData = {
+  vocabulary: [],
+  checkin: [],
+  dictation: [],
+  podcastFeeds: [],
+  recordingHistory: [],
+  writingFiles: [],
+  player: { source: null },
+};

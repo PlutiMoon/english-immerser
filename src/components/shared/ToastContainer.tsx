@@ -1,4 +1,4 @@
-import { useToastStore } from "@/stores/toastStore";
+import type { ToastItem } from "@/types";
 
 const TOAST_STYLES = {
   success: "bg-green-50 border-green-200 text-green-800",
@@ -7,16 +7,19 @@ const TOAST_STYLES = {
   info: "bg-blue-50 border-blue-200 text-blue-800",
 };
 
-const TOAST_ICONS = {
+const TOAST_ICONS: Record<string, string> = {
   success: "✓",
   error: "✕",
   warning: "⚠",
   info: "ℹ",
 };
 
-export default function ToastContainer() {
-  const { toasts, removeToast } = useToastStore();
+interface Props {
+  toasts: ToastItem[];
+  onRemove: (id: string) => void;
+}
 
+export default function ToastContainer({ toasts, onRemove }: Props) {
   if (toasts.length === 0) return null;
 
   return (
@@ -31,7 +34,7 @@ export default function ToastContainer() {
           <span className="text-lg">{TOAST_ICONS[toast.type]}</span>
           <p className="flex-1 text-sm font-medium">{toast.message}</p>
           <button
-            onClick={() => removeToast(toast.id)}
+            onClick={() => onRemove(toast.id)}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             ✕

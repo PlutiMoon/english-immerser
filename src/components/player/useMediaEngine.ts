@@ -1,83 +1,92 @@
 import { useEffect, useRef } from "react";
-import { usePlayerStore } from "@/stores/playerStore";
+import type { MediaSource, SubtitleLine } from "@/types";
 
-export function useMediaEngine() {
+export type PlayState = "idle" | "loading" | "ready" | "error";
+
+export interface MediaEngineState {
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  playState: PlayState;
+  activeSubtitleIndex: number;
+}
+
+interface UseMediaEngineOptions {
+  source: MediaSource | null;
+  playbackRate: number;
+  volume: number;
+  abLoop: { start: number; end: number } | null;
+  subtitles: SubtitleLine[];
+  onStateChange: (patch: Partial<MediaEngineState>) => void;
+}
+
+export function useMediaEngine({
+  source, playbackRate, volume, abLoop, subtitles, onStateChange,
+}: UseMediaEngineOptions) {
   const mediaRef = useRef<HTMLMediaElement | null>(null);
+  const abLoopRef = useRef(abLoop);
+  const subtitlesRef = useRef(subtitles);
+  const callbackRef = useRef(onStateChange);
 
-  // Sync source changes to the persistent media element
+  useEffect(() => { abLoopRef.current = abLoop; }, [abLoop]);
+  useEffect(() => { subtitlesRef.current = subtitles; }, [subtitles]);
+  useEffect(() => { callbackRef.current = onStateChange; }, [onStateChange]);
+
+  // Sync source changes
   useEffect(() => {
     const media = mediaRef.current;
     if (!media) return;
-
-    const { source, playbackRate, volume } = usePlayerStore.getState();
+    const cb = () => callbackRef.current;
     if (!source) {
       media.pause();
       media.removeAttribute("src");
-      usePlayerStore.getState().reset();
+      cb()({ isPlaying: false, playState: "idle", currentTime: 0 });
       return;
     }
-
-    usePlayerStore.getState().setPlayState("loading");
+    cb()({ playState: "loading" });
     media.src = source.path;
     media.playbackRate = playbackRate;
     media.volume = volume;
     media.load();
-    usePlayerStore.getState().setCurrentTime(0);
-    usePlayerStore.getState().setPlaying(false);
-  }, [
-    usePlayerStore((s) => s.source?.path),
-    usePlayerStore((s) => s.source?.type),
-  ]);
+    cb()({ currentTime: 0, isPlaying: false });
+  }, [source?.path, source?.type, playbackRate, volume]);
 
-  // Wire media events to store (bound once on mount)
+  // Wire media events once
   useEffect(() => {
     const media = mediaRef.current;
     if (!media) return;
 
-    const onLoaded = () => {
+    const onLoadedMeta = () => {
       const d = media.duration;
-      if (isFinite(d)) usePlayerStore.getState().setDuration(d);
+      callbackRef.current({ duration: isFinite(d) ? d : 0 });
     };
-
     const onCanPlay = () => {
-      usePlayerStore.getState().setPlayState("ready");
+      callbackRef.current({ playState: "ready" });
       const d = media.duration;
-      if (isFinite(d)) usePlayerStore.getState().setDuration(d);
+      if (isFinite(d)) callbackRef.current({ duration: d });
     };
-
-    const onWaiting = () => {
-      usePlayerStore.getState().setPlayState("loading");
-    };
-
-    const onError = () => {
-      usePlayerStore.getState().setPlayState("error");
-    };
-
-    const onTimeUpdate = () => {
-      const s = usePlayerStore.getState();
-      const ct = media.currentTime;
-      if (s.abLoop && ct >= s.abLoop.end) {
-        media.currentTime = s.abLoop.start;
-        return;
-      }
-      s.setCurrentTime(ct);
-      const idx = s.subtitles.findIndex(
-        (sub) => ct >= sub.start && ct < sub.end,
-      );
-      if (idx !== s.activeSubtitleIndex) {
-        s.setActiveSubtitleIndex(idx);
-      }
-    };
-
-    const onEnded = () => usePlayerStore.getState().setPlaying(false);
-    const onPlay = () => usePlayerStore.getState().setPlaying(true);
-    const onPause = () => usePlayerStore.getState().setPlaying(false);
+    const onWaiting = () => callbackRef.current({ playState: "loading" });
+    const onError = () => callbackRef.current({ playState: "error" });
     const onDurationChange = () => {
       const d = media.duration;
-      if (isFinite(d)) usePlayerStore.getState().setDuration(d);
+      if (isFinite(d)) callbackRef.current({ duration: d });
     };
+    const onTimeUpdate = () => {
+      const ct = media.currentTime;
+      const loop = abLoopRef.current;
+      if (loop && ct >= loop.end) {
+        media.currentTime = loop.start;
+        return;
+      }
+      const subs = subtitlesRef.current;
+      const idx = subs.findIndex(sub => ct >= sub.start && ct < sub.end);
+      callbackRef.current({ currentTime: ct, activeSubtitleIndex: idx });
+    };
+    const onEnded = () => callbackRef.current({ isPlaying: false });
+    const onPlay = () => callbackRef.current({ isPlaying: true });
+    const onPause = () => callbackRef.current({ isPlaying: false });
 
-    media.addEventListener("loadedmetadata", onLoaded);
+    media.addEventListener("loadedmetadata", onLoadedMeta);
     media.addEventListener("canplay", onCanPlay);
     media.addEventListener("waiting", onWaiting);
     media.addEventListener("error", onError);
@@ -88,7 +97,7 @@ export function useMediaEngine() {
     media.addEventListener("pause", onPause);
 
     return () => {
-      media.removeEventListener("loadedmetadata", onLoaded);
+      media.removeEventListener("loadedmetadata", onLoadedMeta);
       media.removeEventListener("canplay", onCanPlay);
       media.removeEventListener("waiting", onWaiting);
       media.removeEventListener("error", onError);
@@ -99,18 +108,6 @@ export function useMediaEngine() {
       media.removeEventListener("pause", onPause);
     };
   }, []);
-
-  // Sync playbackRate and volume from store → element
-  useEffect(() =>
-    usePlayerStore.subscribe((s, prev) => {
-      if (s.playbackRate !== prev.playbackRate && mediaRef.current) {
-        mediaRef.current.playbackRate = s.playbackRate;
-      }
-      if (s.volume !== prev.volume && mediaRef.current) {
-        mediaRef.current.volume = s.volume;
-      }
-    }),
-  []);
 
   return { mediaRef };
 }
