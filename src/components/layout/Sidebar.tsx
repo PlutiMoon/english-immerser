@@ -37,7 +37,7 @@ export default function Sidebar({ scene, onSceneChange }: SidebarProps) {
         ))}
       </nav>
       <div className="border-t border-gray-100 p-3 text-xs text-gray-400">
-        v0.1.0
+        v0.2.0
       </div>
     </aside>
   );
