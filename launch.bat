@@ -1,6 +1,6 @@
 @echo off
-cd /d "D:\ALLCODE\英语一号"
+cd /d "%~dp0"
 set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
-echo Starting 英语沉浸式自学助手...
+echo Starting English Immerser...
 echo.
-npx tauri dev
+npm run tauri dev

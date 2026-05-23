@@ -3,12 +3,16 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 
-fn http_client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new())
+fn http_client() -> &'static reqwest::Client {
+    use std::sync::OnceLock;
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new())
+    })
 }
 
 #[derive(Debug, Serialize)]
@@ -90,7 +94,7 @@ pub async fn fetch_rss(url: String) -> Result<PodcastFeed, String> {
 }
 
 fn audio_cache_dir() -> PathBuf {
-    std::env::temp_dir().join("英语一号")
+    std::env::temp_dir().join("English Immerser")
 }
 
 #[tauri::command]

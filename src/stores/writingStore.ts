@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { readTextFile, writeFile, readDir, remove, exists } from "@tauri-apps/plugin-fs";
-import { dataPaths } from "@/utils/dataPath";
+import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 
 export interface WritingFileInfo {
   name: string;      // filename without extension
@@ -37,6 +37,24 @@ async function readDirSafe(dir: string): Promise<{ name: string }[]> {
   }
 }
 
+async function availableWritingFile(
+  dir: string,
+  baseName: string,
+  currentPath?: string,
+): Promise<{ name: string; path: string }> {
+  let name = baseName;
+  let path = `${dir}/${name}.txt`;
+  let counter = 2;
+
+  while (path !== currentPath && (await exists(path))) {
+    name = `${baseName}-${counter}`;
+    path = `${dir}/${name}.txt`;
+    counter += 1;
+  }
+
+  return { name, path };
+}
+
 export const useWritingStore = create<WritingStoreState>((set, get) => ({
   files: [],
   currentFile: null,
@@ -48,6 +66,7 @@ export const useWritingStore = create<WritingStoreState>((set, get) => ({
   loadFiles: async () => {
     set({ loading: true });
     try {
+      await ensureDataDirs();
       const dir = await dataPaths.writing();
       const entries = await readDirSafe(dir);
       const files: WritingFileInfo[] = [];
@@ -117,9 +136,14 @@ export const useWritingStore = create<WritingStoreState>((set, get) => ({
     if (!title.trim()) return;
 
     try {
+      await ensureDataDirs();
       const dir = await dataPaths.writing();
-      const safeName = sanitizeFilename(title);
-      const newPath = `${dir}/${safeName}.txt`;
+      const baseName = sanitizeFilename(title);
+      const { name: safeName, path: newPath } = await availableWritingFile(
+        dir,
+        baseName,
+        currentFile?.path,
+      );
 
       // If renaming: remove old file
       if (currentFile && currentFile.path !== newPath) {

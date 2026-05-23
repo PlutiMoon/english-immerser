@@ -5,7 +5,7 @@ import WritingEditor from "@/components/writing/WritingEditor";
 import DiaryView from "@/components/writing/DiaryView";
 import { useWritingStore } from "@/stores/writingStore";
 import { openFolder } from "@/utils/openFolder";
-import { dataPaths } from "@/utils/dataPath";
+import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 
 type Tab = "writing" | "diary";
 
@@ -103,6 +103,7 @@ export default function WritingPage() {
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={async () => {
+                    await ensureDataDirs();
                     await openFolder(await dataPaths.diary());
                   }}
                   className="text-xs text-primary-600 hover:text-primary-700 font-medium"
@@ -111,6 +112,7 @@ export default function WritingPage() {
                 </button>
                 <button
                   onClick={async () => {
+                    await ensureDataDirs();
                     await openFolder(await dataPaths.writing());
                   }}
                   className="text-xs text-primary-600 hover:text-primary-700 font-medium"

@@ -1,12 +1,13 @@
 import { useEffect, useState, useMemo } from "react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/shared/StatCard";
+import { SkeletonStat } from "@/components/shared/Skeleton";
 import WordCard from "@/components/vocabulary/WordCard";
 import WordForm from "@/components/vocabulary/WordForm";
 import ReviewPanel from "@/components/vocabulary/ReviewPanel";
 import { useVocabularyStore } from "@/stores/vocabularyStore";
 import { openFolder } from "@/utils/openFolder";
-import { dataPaths } from "@/utils/dataPath";
+import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 import type { VocabularyWord } from "@/types";
 
 export default function VocabularyPage() {
@@ -118,8 +119,6 @@ export default function VocabularyPage() {
     setEditingWord(null);
   };
 
-  if (!loaded) return null;
-
   return (
     <div className="space-y-4">
       <PageHeader
@@ -129,9 +128,19 @@ export default function VocabularyPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
-        <StatCard label="生词总数" value={String(stats.total)} />
-        <StatCard label="已复习" value={String(stats.reviewed)} />
-        <StatCard label="来源数" value={String(stats.sources)} />
+        {!loaded ? (
+          <>
+            <SkeletonStat />
+            <SkeletonStat />
+            <SkeletonStat />
+          </>
+        ) : (
+          <>
+            <StatCard label="生词总数" value={String(stats.total)} />
+            <StatCard label="已复习" value={String(stats.reviewed)} />
+            <StatCard label="来源数" value={String(stats.sources)} />
+          </>
+        )}
       </div>
 
       {/* Toolbar */}
@@ -188,6 +197,7 @@ export default function VocabularyPage() {
 
         <button
           onClick={async () => {
+            await ensureDataDirs();
             await openFolder(await dataPaths.root());
           }}
           className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-xs text-gray-500 hover:bg-gray-100"
@@ -198,7 +208,17 @@ export default function VocabularyPage() {
       </div>
 
       {/* Content */}
-      {reviewing ? (
+      {!loaded ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 animate-pulse">
+              <div className="h-5 bg-gray-200 rounded w-1/3 mb-3" />
+              <div className="h-4 bg-gray-200 rounded w-2/3 mb-2" />
+              <div className="h-4 bg-gray-200 rounded w-1/2" />
+            </div>
+          ))}
+        </div>
+      ) : reviewing ? (
         <ReviewPanel
           words={words}
           onClose={() => setReviewing(false)}

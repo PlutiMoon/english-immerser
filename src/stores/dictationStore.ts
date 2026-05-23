@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { readTextFile, writeFile, exists } from "@tauri-apps/plugin-fs";
-import { dataPath } from "@/utils/dataPath";
+import { dataFiles, ensureDataDirs } from "@/utils/dataPath";
+import { safeParseJSON, isValidDictationSession } from "@/utils/validators";
 import type { DictationStep, DictationResult } from "@/types";
 
 export interface DictationSession {
@@ -75,12 +76,12 @@ export const useDictationStore = create<DictationStoreState>((set, get) => ({
       ],
     };
     try {
-      const root = await dataPath();
-      const filePath = `${root}/dictation.json`;
+      await ensureDataDirs();
+      const filePath = await dataFiles.dictation();
       let existing: DictationSession[] = [];
       if (await exists(filePath)) {
         const raw = await readTextFile(filePath);
-        existing = JSON.parse(raw);
+        existing = safeParseJSON(raw, isValidDictationSession);
       }
       const updated = [session, ...existing];
       await writeFile(filePath, new TextEncoder().encode(JSON.stringify(updated, null, 2)));
@@ -101,14 +102,15 @@ export const useDictationStore = create<DictationStoreState>((set, get) => ({
 
   loadHistory: async () => {
     try {
-      const root = await dataPath();
-      const filePath = `${root}/dictation.json`;
+      await ensureDataDirs();
+      const filePath = await dataFiles.dictation();
       if (!(await exists(filePath))) {
         set({ history: [], loaded: true });
         return;
       }
       const raw = await readTextFile(filePath);
-      set({ history: JSON.parse(raw), loaded: true });
+      const history = safeParseJSON(raw, isValidDictationSession);
+      set({ history, loaded: true });
     } catch (err) {
       console.error("Failed to load dictation history:", err);
       set({ history: [], loaded: true });
@@ -118,8 +120,8 @@ export const useDictationStore = create<DictationStoreState>((set, get) => ({
   deleteSession: async (id: string) => {
     set((s) => ({ history: s.history.filter((h) => h.id !== id) }));
     try {
-      const root = await dataPath();
-      const filePath = `${root}/dictation.json`;
+      await ensureDataDirs();
+      const filePath = await dataFiles.dictation();
       await writeFile(filePath, new TextEncoder().encode(JSON.stringify(get().history, null, 2)));
     } catch (err) {
       console.error("Failed to delete dictation session:", err);

@@ -13,7 +13,7 @@ export default function Sidebar() {
   return (
     <aside className="flex w-56 flex-col bg-white shadow-sm border-r border-gray-200">
       <div className="flex h-14 items-center justify-center border-b border-gray-100">
-        <h1 className="text-lg font-semibold text-primary-700">英语沉浸助手</h1>
+        <h1 className="text-lg font-semibold text-primary-700">English Immerser</h1>
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {NAV_ITEMS.map((item) => (

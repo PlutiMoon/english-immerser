@@ -35,7 +35,7 @@ export default function RecordingsList() {
     if (deleteTarget === file.path) {
       try {
         await remove(file.path);
-        removeFromHistory(file.path);
+        await removeFromHistory(file.path);
       } catch (err) {
         console.error("Delete failed:", err);
       }

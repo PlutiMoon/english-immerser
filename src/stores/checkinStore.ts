@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { readTextFile, writeFile, exists } from "@tauri-apps/plugin-fs";
-import { dataPath } from "@/utils/dataPath";
+import { dataFiles, ensureDataDirs } from "@/utils/dataPath";
+import { safeParseJSON, isValidCheckInRecord } from "@/utils/validators";
 import type { CheckInRecord, ModuleType } from "@/types";
 
 function todayStr(): string {
@@ -39,8 +40,8 @@ export const useCheckinStore = create<CheckinStoreState>((set, get) => ({
     set({ records: updated });
 
     try {
-      const root = await dataPath();
-      const filePath = `${root}/checkin.json`;
+      await ensureDataDirs();
+      const filePath = await dataFiles.checkin();
       await writeFile(filePath, new TextEncoder().encode(JSON.stringify(updated, null, 2)));
     } catch (err) {
       console.error("Failed to save check-in:", err);
@@ -49,14 +50,14 @@ export const useCheckinStore = create<CheckinStoreState>((set, get) => ({
 
   loadRecords: async () => {
     try {
-      const root = await dataPath();
-      const filePath = `${root}/checkin.json`;
+      await ensureDataDirs();
+      const filePath = await dataFiles.checkin();
       if (!(await exists(filePath))) {
         set({ records: [], loaded: true });
         return;
       }
       const raw = await readTextFile(filePath);
-      const records: CheckInRecord[] = JSON.parse(raw);
+      const records = safeParseJSON(raw, isValidCheckInRecord);
       records.sort((a, b) => b.date.localeCompare(a.date));
       set({ records, loaded: true });
     } catch (err) {

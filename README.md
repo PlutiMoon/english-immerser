@@ -1,4 +1,4 @@
-# 英语沉浸式自学助手 · English Immerser
+# English Immerser
 
 <p align="center">
   <img src="app-icon.png" alt="app icon" width="128" />
@@ -74,7 +74,7 @@ npm run tauri build
 ### 项目结构 · Project Structure
 
 ```
-英语一号/
+English Immerser/
 ├── src/                    # React 前端
 │   ├── components/         # 组件（按模块分文件夹）
 │   ├── pages/              # 页面
@@ -93,10 +93,10 @@ npm run tauri build
 
 ## 数据 · Data
 
-所有用户数据存储在系统文档目录下的 `英语一号/` 文件夹，不上传任何服务器：
+所有用户数据存储在系统文档目录下的 `English Immerser/` 文件夹，不上传任何服务器：
 
 ```
-文档/英语一号/
+文档/English Immerser/
 ├── vocabulary.json         # 生词本
 ├── checkin.json            # 打卡记录
 ├── diary/YYYY-MM-DD.txt    # 每日日记
@@ -104,7 +104,7 @@ npm run tauri build
 └── recordings/             # 录音文件
 ```
 
-All user data is stored locally under `英语一号/` in your system's Documents folder — nothing is ever uploaded.
+All user data is stored locally under `English Immerser/` in your system's Documents folder — nothing is ever uploaded.
 
 ---
 

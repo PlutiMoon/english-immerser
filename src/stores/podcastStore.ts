@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { readTextFile, writeFile, exists } from "@tauri-apps/plugin-fs";
-import { dataPath } from "@/utils/dataPath";
+import { dataFiles, ensureDataDirs } from "@/utils/dataPath";
+import { debounce } from "@/utils/debounce";
+import { safeParseJSON, isValidPodcastPreset } from "@/utils/validators";
 import type { PodcastFeed, PodcastPreset } from "@/types";
 
 const PRESETS: PodcastPreset[] = [
@@ -23,10 +25,6 @@ const PRESETS: PodcastPreset[] = [
   },
 ];
 
-function feedFilePath(root: string): string {
-  return `${root}/podcast_feeds.json`;
-}
-
 interface PodcastStore {
   presets: PodcastPreset[];
   customFeeds: PodcastPreset[];
@@ -40,65 +38,72 @@ interface PodcastStore {
   loadCustomFeeds: () => Promise<void>;
 }
 
-async function saveCustomFeeds(feeds: PodcastPreset[]): Promise<void> {
-  try {
-    const root = await dataPath();
-    await writeFile(feedFilePath(root), new TextEncoder().encode(JSON.stringify(feeds, null, 2)));
-  } catch (err) {
-    console.error("Failed to save custom podcast feeds:", err);
-  }
-}
-
-export const usePodcastStore = create<PodcastStore>((set, get) => ({
-  presets: PRESETS,
-  customFeeds: [],
-  feedCache: {},
-  loading: false,
-  error: null,
-
-  fetchFeed: async (url: string) => {
-    const cached = get().feedCache[url];
-    if (cached) return cached;
-
-    set({ loading: true, error: null });
+export const usePodcastStore = create<PodcastStore>((set, get) => {
+  const debouncedSaveFeeds = debounce(async () => {
     try {
-      const feed = await invoke<PodcastFeed>("fetch_rss", { url });
-      set((s) => ({
-        feedCache: { ...s.feedCache, [url]: feed },
-        loading: false,
-      }));
-      return feed;
-    } catch (e) {
-      set({ loading: false, error: String(e) });
-      throw e;
-    }
-  },
-
-  addCustomFeed: (name, url) => {
-    set((s) => {
-      const next = [...s.customFeeds, { name, url }];
-      saveCustomFeeds(next).catch(console.error);
-      return { customFeeds: next };
-    });
-  },
-
-  removeCustomFeed: (url) => {
-    set((s) => {
-      const next = s.customFeeds.filter((f) => f.url !== url);
-      saveCustomFeeds(next).catch(console.error);
-      return { customFeeds: next };
-    });
-  },
-
-  loadCustomFeeds: async () => {
-    try {
-      const root = await dataPath();
-      if (!(await exists(feedFilePath(root)))) return;
-      const raw = await readTextFile(feedFilePath(root));
-      const feeds: PodcastPreset[] = JSON.parse(raw);
-      set({ customFeeds: feeds });
+      await ensureDataDirs();
+      const filePath = await dataFiles.podcastFeeds();
+      await writeFile(
+        filePath,
+        new TextEncoder().encode(JSON.stringify(get().customFeeds, null, 2)),
+      );
     } catch (err) {
-      console.error("Failed to load custom podcast feeds:", err);
+      console.error("Failed to save custom podcast feeds:", err);
     }
-  },
-}));
+  }, 500);
+
+  return {
+    presets: PRESETS,
+    customFeeds: [],
+    feedCache: {},
+    loading: false,
+    error: null,
+
+    fetchFeed: async (url: string) => {
+      const cached = get().feedCache[url];
+      if (cached) return cached;
+
+      set({ loading: true, error: null });
+      try {
+        const feed = await invoke<PodcastFeed>("fetch_rss", { url });
+        set((s) => ({
+          feedCache: { ...s.feedCache, [url]: feed },
+          loading: false,
+        }));
+        return feed;
+      } catch (e) {
+        set({ loading: false, error: String(e) });
+        throw e;
+      }
+    },
+
+    addCustomFeed: (name, url) => {
+      set((s) => {
+        const next = [...s.customFeeds, { name, url }];
+        return { customFeeds: next };
+      });
+      debouncedSaveFeeds();
+    },
+
+    removeCustomFeed: (url) => {
+      set((s) => {
+        const next = s.customFeeds.filter((f) => f.url !== url);
+        return { customFeeds: next };
+      });
+      debouncedSaveFeeds();
+    },
+
+    loadCustomFeeds: async () => {
+      try {
+        await ensureDataDirs();
+        const filePath = await dataFiles.podcastFeeds();
+        if (!(await exists(filePath))) return;
+        const raw = await readTextFile(filePath);
+        const feeds = safeParseJSON(raw, isValidPodcastPreset);
+        set({ customFeeds: feeds });
+      } catch (err) {
+        console.error("Failed to load custom podcast feeds:", err);
+      }
+    },
+  };
+});

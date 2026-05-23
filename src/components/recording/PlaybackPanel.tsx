@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { writeFile } from "@tauri-apps/plugin-fs";
-import { dataPaths } from "@/utils/dataPath";
+import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 import { useRecordingStore } from "@/stores/recordingStore";
 import { formatSeconds } from "@/utils/formatSeconds";
 
@@ -32,12 +32,13 @@ export default function PlaybackPanel() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      await ensureDataDirs();
       const name = nowFilename();
       const dir = await dataPaths.recordings();
       const filePath = `${dir}/${name}`;
       const arrayBuf = await blob.arrayBuffer();
       await writeFile(filePath, new Uint8Array(arrayBuf));
-      addToHistory({
+      await addToHistory({
         name,
         path: filePath,
         duration: Math.round(duration),

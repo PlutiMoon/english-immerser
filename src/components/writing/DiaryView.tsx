@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { readTextFile, writeFile, readDir, exists, remove } from "@tauri-apps/plugin-fs";
-import { dataPaths } from "@/utils/dataPath";
+import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -32,6 +32,7 @@ export default function DiaryView() {
   // Load today's diary and history list
   const loadToday = useCallback(async () => {
     try {
+      await ensureDataDirs();
       const dir = await dataPaths.diary();
 
       // Load history dates
@@ -82,6 +83,7 @@ export default function DiaryView() {
     setSaving(true);
     setError(null);
     try {
+      await ensureDataDirs();
       const dir = await dataPaths.diary();
       const filePath = `${dir}/${today}.txt`;
       const content = sentences.map((s) => s.trim()).join("\n");
@@ -108,6 +110,7 @@ export default function DiaryView() {
   // View a history entry
   const viewDate = useCallback(async (date: string) => {
     try {
+      await ensureDataDirs();
       const dir = await dataPaths.diary();
       const filePath = `${dir}/${date}.txt`;
       const fileExists = await exists(filePath);
@@ -126,6 +129,7 @@ export default function DiaryView() {
   const handleDeleteDate = async (date: string) => {
     if (deleteTarget === date) {
       try {
+        await ensureDataDirs();
         const dir = await dataPaths.diary();
         const filePath = `${dir}/${date}.txt`;
         await remove(filePath);

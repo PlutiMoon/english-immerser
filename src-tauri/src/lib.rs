@@ -13,7 +13,7 @@ pub fn run() {
                 .path()
                 .document_dir()
                 .expect("failed to resolve document directory");
-            let data_root = doc_dir.join("英语一号");
+            let data_root = doc_dir.join("English Immerser");
             std::fs::create_dir_all(data_root.join("diary"))
                 .expect("failed to create diary dir");
             std::fs::create_dir_all(data_root.join("writing"))

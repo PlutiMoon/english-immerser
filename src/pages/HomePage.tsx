@@ -1,14 +1,13 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { readDir } from "@tauri-apps/plugin-fs";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
 import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/shared/StatCard";
+import { SkeletonStat } from "@/components/shared/Skeleton";
 import StreakBadge from "@/components/home/StreakBadge";
 import CheckInModal from "@/components/checkin/CheckInModal";
 import { openFolder } from "@/utils/openFolder";
-import { dataPaths } from "@/utils/dataPath";
+import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 import { useCheckinStore, computeStreak, todayRecord } from "@/stores/checkinStore";
 import type { ModuleType } from "@/types";
 import { useVocabularyStore } from "@/stores/vocabularyStore";
@@ -31,50 +30,27 @@ const MODULE_LABELS: Record<string, string> = {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { records, checkIn, loadRecords } = useCheckinStore();
+  const { records, checkIn, loadRecords, loaded: checkinLoaded } = useCheckinStore();
   const { words, loaded: vocabLoaded, loadWords } = useVocabularyStore();
 
   const [showModal, setShowModal] = useState(false);
   const [diaryCount, setDiaryCount] = useState(0);
-  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
-
-  const checkUpdate = useCallback(async () => {
-    setUpdateStatus("Checking...");
-    try {
-      const update = await check();
-      if (update) {
-        setUpdateStatus(`Found v${update.version}`);
-        const ok = window.confirm(
-          `New version ${update.version} is available.\n\n${update.body || ""}\n\nDownload and install now?`
-        );
-        if (ok) {
-          setUpdateStatus("Downloading...");
-          await update.downloadAndInstall();
-          await relaunch();
-        } else {
-          setUpdateStatus(null);
-        }
-      } else {
-        setUpdateStatus("Already latest");
-        setTimeout(() => setUpdateStatus(null), 2000);
-      }
-    } catch {
-      setUpdateStatus("Failed to check");
-      setTimeout(() => setUpdateStatus(null), 2000);
-    }
-  }, []);
+  const [diaryLoading, setDiaryLoading] = useState(true);
 
   // Load all data on mount
   useEffect(() => {
     loadRecords();
     loadWords();
-    dataPaths.diary().then(async (dir) => {
+    ensureDataDirs().then(async () => {
+      const dir = await dataPaths.diary();
       try {
         const entries = await readDir(dir);
         const count = entries.filter((e) => e.name?.endsWith(".txt")).length;
         setDiaryCount(count);
       } catch {
         setDiaryCount(0);
+      } finally {
+        setDiaryLoading(false);
       }
     });
   }, []);
@@ -105,26 +81,38 @@ export default function HomePage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatCard
-          label="连续打卡"
-          value={stats.streak > 0 ? `${stats.streak} 天` : "—"}
-        />
-        <StatCard
-          label="今日时长"
-          value={stats.todayMinutes > 0 ? `${stats.todayMinutes} 分钟` : "—"}
-        />
-        <StatCard
-          label="习词本"
-          value={vocabLoaded ? `${words.length} 词` : "—"}
-        />
-        <StatCard
-          label="日记"
-          value={`${diaryCount} 篇`}
-        />
-        <StatCard
-          label="累计打卡"
-          value={records.length > 0 ? `${records.length} 次` : "—"}
-        />
+        {!checkinLoaded ? (
+          <>
+            <SkeletonStat />
+            <SkeletonStat />
+            <SkeletonStat />
+            <SkeletonStat />
+            <SkeletonStat />
+          </>
+        ) : (
+          <>
+            <StatCard
+              label="连续打卡"
+              value={stats.streak > 0 ? `${stats.streak} 天` : "—"}
+            />
+            <StatCard
+              label="今日时长"
+              value={stats.todayMinutes > 0 ? `${stats.todayMinutes} 分钟` : "—"}
+            />
+            <StatCard
+              label="习词本"
+              value={vocabLoaded ? `${words.length} 词` : "—"}
+            />
+            <StatCard
+              label="日记"
+              value={diaryLoading ? "—" : `${diaryCount} 篇`}
+            />
+            <StatCard
+              label="累计打卡"
+              value={records.length > 0 ? `${records.length} 次` : "—"}
+            />
+          </>
+        )}
       </div>
 
       {/* Check-in area */}
@@ -186,17 +174,12 @@ export default function HomePage() {
         </p>
         <button
           onClick={async () => {
+            await ensureDataDirs();
             await openFolder(await dataPaths.root());
           }}
           className="mt-3 text-xs text-primary-600 hover:text-primary-700 font-medium"
         >
           打开数据文件夹 →
-        </button>
-        <button
-          onClick={checkUpdate}
-          className="mt-3 ml-4 text-xs text-gray-400 hover:text-primary-600 font-medium"
-        >
-          {updateStatus || "检查更新"}
         </button>
       </section>
 

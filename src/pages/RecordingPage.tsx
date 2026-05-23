@@ -5,15 +5,18 @@ import PlaybackPanel from "@/components/recording/PlaybackPanel";
 import RecordingsList from "@/components/recording/RecordingsList";
 import PromptCard from "@/components/recording/PromptCard";
 import { useMediaRecorder } from "@/hooks/useMediaRecorder";
+import { useRecordingStore } from "@/stores/recordingStore";
 import { openFolder } from "@/utils/openFolder";
-import { dataPaths } from "@/utils/dataPath";
+import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 
 export default function RecordingPage() {
   const { start, stop, cleanup } = useMediaRecorder();
+  const loadHistory = useRecordingStore((s) => s.loadHistory);
 
   useEffect(() => {
+    loadHistory();
     return () => cleanup();
-  }, [cleanup]);
+  }, [cleanup, loadHistory]);
 
   return (
     <div className="space-y-4">
@@ -46,6 +49,7 @@ export default function RecordingPage() {
             </ul>
             <button
               onClick={async () => {
+                await ensureDataDirs();
                 await openFolder(await dataPaths.recordings());
               }}
               className="mt-3 text-xs text-primary-600 hover:text-primary-700 font-medium"
