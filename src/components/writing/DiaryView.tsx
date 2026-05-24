@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { readTextFile, writeFile, readDir, exists, remove } from "@tauri-apps/plugin-fs";
-import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
+import type { ToastType } from "@/types";
+import { useWritingStore } from "@/stores/writingStore";
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -17,40 +17,32 @@ const PROMPTS = [
   "明天想做点什么？",
 ];
 
-export default function DiaryView() {
+interface DiaryViewProps {
+  toast?: (message: string, type?: ToastType, duration?: number) => void;
+}
+
+export default function DiaryView({ toast }: DiaryViewProps) {
   const today = todayStr();
   const [sentences, setSentences] = useState<string[]>(["", "", ""]);
   const [saved, setSaved] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [historyDates, setHistoryDates] = useState<string[]>([]);
   const [viewingDate, setViewingDate] = useState<string | null>(null);
   const [viewingContent, setViewingContent] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const historyDates = useWritingStore((s) => s.diaryDates);
+  const loadDiaryHistory = useWritingStore((s) => s.loadDiaryHistory);
+  const loadDiary = useWritingStore((s) => s.loadDiary);
+  const saveDiary = useWritingStore((s) => s.saveDiary);
+  const deleteDiary = useWritingStore((s) => s.deleteDiary);
 
   // Load today's diary and history list
   const loadToday = useCallback(async () => {
     try {
-      await ensureDataDirs();
-      const dir = await dataPaths.diary();
-
-      // Load history dates
-      const entries = await readDir(dir);
-      const dates: string[] = [];
-      for (const e of entries) {
-        const name = e.name || "";
-        const match = name.match(/^(\d{4}-\d{2}-\d{2})\.txt$/);
-        if (match) dates.push(match[1]);
-      }
-      dates.sort().reverse();
-      setHistoryDates(dates);
-
-      // Load today
-      const filePath = `${dir}/${today}.txt`;
-      const fileExists = await exists(filePath);
-      if (fileExists) {
-        const raw = await readTextFile(filePath);
+      await loadDiaryHistory();
+      const raw = await loadDiary(today);
+      if (raw !== null) {
         const lines = raw.split("\n").filter((l) => l.trim());
         setSentences([
           lines[0] || "",
@@ -62,10 +54,11 @@ export default function DiaryView() {
       }
     } catch (err) {
       console.error("Failed to load diary:", err);
+      toast?.("日记加载失败", "error");
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [loadDiary, loadDiaryHistory, today, toast]);
 
   useEffect(() => {
     loadToday();
@@ -83,25 +76,14 @@ export default function DiaryView() {
     setSaving(true);
     setError(null);
     try {
-      await ensureDataDirs();
-      const dir = await dataPaths.diary();
-      const filePath = `${dir}/${today}.txt`;
       const content = sentences.map((s) => s.trim()).join("\n");
-      await writeFile(filePath, new TextEncoder().encode(content));
+      await saveDiary(today, content);
       setSaved(true);
-
-      // Refresh history
-      setHistoryDates((prev) => {
-        if (!prev.includes(today)) {
-          const next = [today, ...prev];
-          next.sort().reverse();
-          return next;
-        }
-        return prev;
-      });
+      toast?.("日记已保存", "success");
     } catch (err) {
       console.error("Failed to save diary:", err);
       setError(`保存失败: ${String(err)}`);
+      toast?.("日记保存失败", "error");
     } finally {
       setSaving(false);
     }
@@ -110,37 +92,28 @@ export default function DiaryView() {
   // View a history entry
   const viewDate = useCallback(async (date: string) => {
     try {
-      await ensureDataDirs();
-      const dir = await dataPaths.diary();
-      const filePath = `${dir}/${date}.txt`;
-      const fileExists = await exists(filePath);
-      if (fileExists) {
-        const raw = await readTextFile(filePath);
-        setViewingContent(raw);
-      } else {
-        setViewingContent("(日记不存在)");
-      }
+      const raw = await loadDiary(date);
+      setViewingContent(raw ?? "(日记不存在)");
       setViewingDate(date);
     } catch (err) {
       console.error("Failed to read diary:", err);
+      toast?.("日记读取失败", "error");
     }
-  }, []);
+  }, [loadDiary, toast]);
 
   const handleDeleteDate = async (date: string) => {
     if (deleteTarget === date) {
       try {
-        await ensureDataDirs();
-        const dir = await dataPaths.diary();
-        const filePath = `${dir}/${date}.txt`;
-        await remove(filePath);
-        setHistoryDates((prev) => prev.filter((d) => d !== date));
+        await deleteDiary(date);
         // If currently viewing the deleted date, go back
         if (viewingDate === date) {
           setViewingDate(null);
           setViewingContent("");
         }
+        toast?.("日记已删除", "success");
       } catch (err) {
         console.error("Failed to delete diary:", err);
+        toast?.("日记删除失败", "error");
       }
       setDeleteTarget(null);
     } else {

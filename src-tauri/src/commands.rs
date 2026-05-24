@@ -2,13 +2,14 @@ use serde::Serialize;
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
+use tauri::Manager;
 
 fn http_client() -> &'static reqwest::Client {
     use std::sync::OnceLock;
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
             .build()
             .unwrap_or_else(|_| reqwest::Client::new())
@@ -42,55 +43,7 @@ pub async fn fetch_rss(url: String) -> Result<PodcastFeed, String> {
         .await
         .map_err(|e| format!("Failed to read response: {}", e))?;
 
-    let channel = rss::Channel::read_from(&content[..])
-        .map_err(|e| format!("Failed to parse RSS: {}", e))?;
-
-    let items = channel
-        .items()
-        .iter()
-        .filter_map(|item| {
-            // Prefer HTTPS audio URL. BBC feeds provide ppg:enclosureSecure
-            let audio_url = item
-                .extensions()
-                .get("ppg")
-                .and_then(|m| m.get("enclosureSecure"))
-                .and_then(|exts| exts.first())
-                .and_then(|ext| ext.attrs().get("url"))
-                .cloned()
-                .or_else(|| {
-                    item.enclosure().map(|e| e.url().to_string())
-                })
-                .or_else(|| {
-                    item.extensions()
-                        .get("media")
-                        .and_then(|m| m.get("content"))
-                        .and_then(|exts| exts.first())
-                        .and_then(|ext| ext.attrs().get("url"))
-                        .cloned()
-                })?;
-
-            Some(PodcastItem {
-                title: item.title().unwrap_or("Untitled").to_string(),
-                description: item
-                    .description()
-                    .unwrap_or("")
-                    .chars()
-                    .take(500)
-                    .collect(),
-                audio_url,
-                duration: item
-                    .itunes_ext()
-                    .and_then(|it| it.duration().map(|d| d.to_string())),
-                pub_date: item.pub_date().map(|d| d.to_string()),
-            })
-        })
-        .collect();
-
-    Ok(PodcastFeed {
-        title: channel.title().to_string(),
-        description: channel.description().to_string(),
-        items,
-    })
+    parse_rss_feed(&content[..])
 }
 
 fn audio_cache_dir() -> PathBuf {
@@ -155,6 +108,13 @@ pub async fn download_audio(url: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub fn allow_media_file(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    app.asset_protocol_scope()
+        .allow_file(path)
+        .map_err(|e| format!("Failed to allow media file: {}", e))
+}
+
+#[tauri::command]
 pub fn open_cache_dir() -> Result<(), String> {
     let path = audio_cache_dir().to_string_lossy().to_string();
     #[cfg(target_os = "windows")]
@@ -207,4 +167,137 @@ pub fn open_folder(path: String) -> Result<(), String> {
             .map_err(|e| format!("Failed to open folder: {}", e))?;
     }
     Ok(())
+}
+
+fn parse_rss_feed(content: &[u8]) -> Result<PodcastFeed, String> {
+    let channel = rss::Channel::read_from(content)
+        .map_err(|e| format!("Failed to parse RSS: {}", e))?;
+    Ok(build_podcast_feed(&channel))
+}
+
+fn build_podcast_feed(channel: &rss::Channel) -> PodcastFeed {
+    let items = channel
+        .items()
+        .iter()
+        .filter_map(|item| {
+            let audio_url = extract_audio_url(item)?;
+
+            Some(PodcastItem {
+                title: item.title().unwrap_or("Untitled").to_string(),
+                description: item
+                    .description()
+                    .unwrap_or("")
+                    .chars()
+                    .take(500)
+                    .collect(),
+                audio_url,
+                duration: item
+                    .itunes_ext()
+                    .and_then(|it| it.duration().map(|d| d.to_string())),
+                pub_date: item.pub_date().map(|d| d.to_string()),
+            })
+        })
+        .collect();
+
+    PodcastFeed {
+        title: channel.title().to_string(),
+        description: channel.description().to_string(),
+        items,
+    }
+}
+
+fn extract_audio_url(item: &rss::Item) -> Option<String> {
+    item
+        .extensions()
+        .get("ppg")
+        .and_then(|m| m.get("enclosureSecure"))
+        .and_then(|exts| exts.first())
+        .and_then(|ext| ext.attrs().get("url"))
+        .cloned()
+        .or_else(|| item.enclosure().map(|e| e.url().to_string()))
+        .or_else(|| {
+            item.extensions()
+                .get("media")
+                .and_then(|m| m.get("content"))
+                .and_then(|exts| exts.first())
+                .and_then(|ext| ext.attrs().get("url"))
+                .cloned()
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_podcast_feed, parse_rss_feed};
+
+    #[test]
+    fn parses_standard_enclosure_items() {
+        let raw = br#"
+            <rss version="2.0">
+              <channel>
+                <title>Test Feed</title>
+                <description>Feed description</description>
+                <item>
+                  <title>Episode 1</title>
+                  <description>Episode description</description>
+                  <enclosure url="https://example.com/episode1.mp3" length="123" type="audio/mpeg" />
+                  <itunes:duration xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">12:34</itunes:duration>
+                  <pubDate>Mon, 24 May 2026 08:30:00 GMT</pubDate>
+                </item>
+              </channel>
+            </rss>
+        "#;
+
+        let feed = parse_rss_feed(raw).expect("feed should parse");
+        assert_eq!(feed.title, "Test Feed");
+        assert_eq!(feed.description, "Feed description");
+        assert_eq!(feed.items.len(), 1);
+        assert_eq!(feed.items[0].audio_url, "https://example.com/episode1.mp3");
+        assert_eq!(feed.items[0].duration.as_deref(), Some("12:34"));
+        assert_eq!(
+            feed.items[0].pub_date.as_deref(),
+            Some("Mon, 24 May 2026 08:30:00 GMT"),
+        );
+    }
+
+    #[test]
+    fn prefers_secure_enclosure_over_regular_enclosure() {
+        let raw = br#"
+            <rss version="2.0" xmlns:ppg="https://example.com/ppg">
+              <channel>
+                <title>Secure Feed</title>
+                <description>Secure description</description>
+                <item>
+                  <title>Episode 2</title>
+                  <description>Episode 2 description</description>
+                  <enclosure url="http://example.com/episode2.mp3" length="123" type="audio/mpeg" />
+                  <ppg:enclosureSecure url="https://example.com/episode2.mp3" />
+                </item>
+              </channel>
+            </rss>
+        "#;
+
+        let feed = parse_rss_feed(raw).expect("feed should parse");
+        assert_eq!(feed.items[0].audio_url, "https://example.com/episode2.mp3");
+    }
+
+    #[test]
+    fn builds_feed_from_channel() {
+        let raw = br#"
+            <rss version="2.0">
+              <channel>
+                <title>Channel Title</title>
+                <description>Channel Description</description>
+                <item>
+                  <title>Episode 3</title>
+                  <enclosure url="https://example.com/episode3.mp3" length="123" type="audio/mpeg" />
+                </item>
+              </channel>
+            </rss>
+        "#;
+
+        let channel = rss::Channel::read_from(&raw[..]).expect("channel should parse");
+        let feed = build_podcast_feed(&channel);
+        assert_eq!(feed.title, "Channel Title");
+        assert_eq!(feed.items[0].title, "Episode 3");
+    }
 }

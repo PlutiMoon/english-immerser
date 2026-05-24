@@ -59,13 +59,28 @@ export default function App() {
   const [updateInfo, setUpdateInfo] = useState<Update | null>(null);
   const [downloading, setDownloading] = useState(false);
 
+  // Toast
+  const addToast = useCallback((message: string, type: ToastType = "info", duration = 3000) => {
+    const id = crypto.randomUUID();
+    setToasts(prev => [...prev, { id, message, type, duration }]);
+    if (duration > 0) {
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
+    }
+  }, []);
+
   // Load all data once on mount
   useEffect(() => {
-    loadAllData().then(d => {
-      setDataState(d);
+    loadAllData().then(({ data, recoveries }) => {
+      setDataState(data);
       setLoaded(true);
+      recoveries.forEach((recovery) => {
+        const detail = recovery.backupPath
+          ? `已备份到 ${recovery.backupPath}`
+          : `已跳过 ${recovery.invalidCount} 条异常记录`;
+        addToast(`${recovery.label}数据已自动恢复，${detail}`, "warning", 7000);
+      });
     });
-  }, []);
+  }, [addToast]);
 
   // Update check (delayed)
   useEffect(() => {
@@ -85,15 +100,6 @@ export default function App() {
       saveAllData(next).catch(console.error);
       return next;
     });
-  }, []);
-
-  // Toast
-  const addToast = useCallback((message: string, type: ToastType = "info", duration = 3000) => {
-    const id = crypto.randomUUID();
-    setToasts(prev => [...prev, { id, message, type, duration }]);
-    if (duration > 0) {
-      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
-    }
   }, []);
 
   // Update handlers

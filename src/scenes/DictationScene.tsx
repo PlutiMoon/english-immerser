@@ -6,10 +6,14 @@ import DictationFlow from "@/components/dictation/DictationFlow";
 import SessionResult from "@/components/dictation/SessionResult";
 import HistoryList from "@/components/dictation/HistoryList";
 import { useDictationStore } from "@/stores/dictationStore";
+import { useVocabularyStore } from "@/stores/vocabularyStore";
+import { useWritingStore } from "@/stores/writingStore";
 import type { DictationStep } from "@/types";
 
-export default function DictationScene({ data, setData }: SceneProps) {
-  const { source, sessionActive, startSession, resetSession } = useDictationStore();
+export default function DictationScene({ data, toast, onSceneChange }: SceneProps) {
+  const { source, sessionActive, history, loaded, startSession, resetSession } = useDictationStore();
+  const recovery = useDictationStore((s) => s.recovery);
+  const clearRecovery = useDictationStore((s) => s.clearRecovery);
   const [step, setStep] = useState<DictationStep>("listen");
   const [keywords, setKeywords] = useState("");
   const [retellText, setRetellText] = useState("");
@@ -18,25 +22,32 @@ export default function DictationScene({ data, setData }: SceneProps) {
   // Load history on mount
   useEffect(() => { useDictationStore.getState().loadHistory(); }, []);
 
-  // Persist dictation sessions to AppData
   useEffect(() => {
-    const unsub = useDictationStore.subscribe(state => {
-      if (state.history.length > 0) setData({ dictation: state.history });
-    });
-    return unsub;
-  }, [setData]);
+    if (recovery) {
+      const detail = recovery.backupPath
+        ? `已备份到 ${recovery.backupPath}`
+        : `已跳过 ${recovery.invalidCount} 条异常记录`;
+      toast(`${recovery.label}数据已自动恢复，${detail}`, "warning", 7000);
+      clearRecovery();
+    }
+  }, [recovery, clearRecovery, toast]);
 
   const handlePickFile = async () => {
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: "音频文件", extensions: ["mp3", "mp4", "m4a", "wav", "ogg", "webm"] }],
-    });
-    if (selected) {
-      const path = selected as string;
-      const name = path.split(/[/\\]/).pop() || path;
-      startSession({ name, path });
-      setStep("listen"); setKeywords(""); setRetellText("");
-      setShowResult(false);
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "音频文件", extensions: ["mp3", "mp4", "m4a", "wav", "ogg", "webm"] }],
+      });
+      if (selected) {
+        const path = selected as string;
+        const name = path.split(/[/\\]/).pop() || path;
+        startSession({ name, path });
+        setStep("listen"); setKeywords(""); setRetellText("");
+        setShowResult(false);
+      }
+    } catch (err) {
+      console.error("Failed to pick dictation file:", err);
+      toast("选择音频文件失败", "error");
     }
   };
 
@@ -52,8 +63,24 @@ export default function DictationScene({ data, setData }: SceneProps) {
     const store = useDictationStore.getState();
     store.setKeywords(keywords);
     store.setRetellText(retellText);
-    await store.saveSession();
-    setShowResult(true);
+    try {
+      await store.saveSession();
+      setShowResult(true);
+      toast("听写记录已保存", "success");
+    } catch (err) {
+      console.error("Failed to save dictation session:", err);
+      toast("听写记录保存失败", "error");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await useDictationStore.getState().deleteSession(id);
+      toast("听写记录已删除", "success");
+    } catch (err) {
+      console.error("Failed to delete dictation session:", err);
+      toast("听写记录删除失败", "error");
+    }
   };
 
   const handleNewSession = () => {
@@ -62,15 +89,41 @@ export default function DictationScene({ data, setData }: SceneProps) {
     setShowResult(false);
   };
 
+  const handleAddToVocabulary = () => {
+    const store = useVocabularyStore.getState();
+    store.setPendingWord({ word: keywords, source: source?.name ?? "" });
+    onSceneChange("vocabulary");
+  };
+
+  const handleSaveToWriting = () => {
+    const store = useWritingStore.getState();
+    store.setPendingContent({
+      title: `${source?.name ?? "听写"} 复述`,
+      content: retellText,
+    });
+    onSceneChange("writing");
+  };
+
+  const handleRepeatSource = () => {
+    if (source) {
+      startSession({ name: source.name, path: source.path });
+      setStep("listen"); setKeywords(""); setRetellText("");
+      setShowResult(false);
+    }
+  };
+
   if (showResult && source) {
     return (
       <div className="space-y-6">
         <PageHeader title="听写与复述小游戏" subtitle="播放→输入关键词→再播放→用自己的话复述" />
         <SessionResult sourceName={source.name} keywords={keywords} retellText={retellText}
-          onNewSession={handleNewSession} />
+          onNewSession={handleNewSession}
+          onAddToVocabulary={handleAddToVocabulary}
+          onSaveToWriting={handleSaveToWriting}
+          onRepeatSource={handleRepeatSource} />
         <div className="border-t border-gray-100 pt-6">
-          <HistoryList history={data.dictation} loaded={true}
-            onDelete={async (id) => { await useDictationStore.getState().deleteSession(id); }} />
+          <HistoryList history={history} loaded={loaded}
+            onDelete={handleDelete} />
         </div>
       </div>
     );
@@ -117,8 +170,8 @@ export default function DictationScene({ data, setData }: SceneProps) {
         </div>
       </div>
       <div className="border-t border-gray-100 pt-6">
-        <HistoryList history={data.dictation} loaded={true}
-          onDelete={async (id) => { await useDictationStore.getState().deleteSession(id); }} />
+        <HistoryList history={history} loaded={loaded}
+          onDelete={handleDelete} />
       </div>
     </div>
   );

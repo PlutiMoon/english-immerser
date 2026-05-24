@@ -16,9 +16,9 @@ export default function HistoryList({ history, loaded, onDelete }: HistoryListPr
   const [expanded, setExpanded] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const handleDelete = (session: DictationSession) => {
+  const handleDelete = async (session: DictationSession) => {
     if (deleteTarget === session.id) {
-      onDelete(session.id).catch(console.error);
+      await onDelete(session.id);
       if (expanded === session.id) setExpanded(null);
       setDeleteTarget(null);
     } else {
@@ -72,7 +72,7 @@ export default function HistoryList({ history, loaded, onDelete }: HistoryListPr
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDelete(session);
+                    handleDelete(session).catch(console.error);
                   }}
                   className={`shrink-0 px-1.5 py-0.5 rounded text-xs transition-colors ${
                     isDeleting

@@ -1,13 +1,14 @@
 import { useRef, useState } from "react";
-import { remove } from "@tauri-apps/plugin-fs";
 import { formatSeconds } from "@/utils/formatSeconds";
-import type { RecordingFile } from "@/types";
+import { allowMediaFile, resolveLocalMediaSrc } from "@/utils/mediaAsset";
+import type { RecordingFile, ToastType } from "@/types";
 
 interface RecordingsListProps {
   history: RecordingFile[];
   loaded: boolean;
   onPlay: (file: RecordingFile) => void;
-  onDelete: (path: string) => void;
+  onDelete: (file: RecordingFile) => Promise<void>;
+  toast?: (message: string, type?: ToastType, duration?: number) => void;
 }
 
 export default function RecordingsList({
@@ -15,6 +16,7 @@ export default function RecordingsList({
   loaded,
   onPlay,
   onDelete,
+  toast,
 }: RecordingsListProps) {
   const [playing, setPlaying] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function RecordingsList({
     );
   }
 
-  const handlePlay = (file: RecordingFile) => {
+  const handlePlay = async (file: RecordingFile) => {
     onPlay(file);
     const audio = audioRef.current;
     if (!audio) return;
@@ -45,18 +47,25 @@ export default function RecordingsList({
       setPlaying(null);
       return;
     }
-    audio.src = file.path;
-    audio.play().catch(console.error);
-    setPlaying(file.path);
+    try {
+      await allowMediaFile(file.path);
+      audio.src = resolveLocalMediaSrc(file.path);
+      await audio.play();
+      setPlaying(file.path);
+    } catch (err) {
+      console.error("Playback failed:", err);
+      toast?.("录音播放失败", "error");
+    }
   };
 
   const handleDelete = async (file: RecordingFile) => {
     if (deleteTarget === file.path) {
       try {
-        await remove(file.path);
-        onDelete(file.path);
+        await onDelete(file);
+        toast?.("录音已删除", "success");
       } catch (err) {
         console.error("Delete failed:", err);
+        toast?.("录音删除失败", "error");
       }
       setDeleteTarget(null);
     } else {

@@ -30,6 +30,8 @@ export interface VocabularyWord {
   createdAt: string;
   lastReviewedAt: string | null;
   reviewCount: number;
+  mediaPath?: string;
+  mediaTimestamp?: number;
 }
 
 // ============================================================
@@ -124,6 +126,17 @@ export interface PromptItem {
 }
 
 // ============================================================
+// 数据恢复通知
+// ============================================================
+
+export interface JsonRecoveryNotice {
+  label: string;
+  path: string;
+  backupPath: string | null;
+  invalidCount: number;
+}
+
+// ============================================================
 // UI 类型
 // ============================================================
 
@@ -137,25 +150,28 @@ export interface ToastItem {
 }
 
 // ============================================================
+// 播放器学习记忆
+// ============================================================
+
+export interface SavedLoop {
+  start: number;
+  end: number;
+  label: string;
+}
+
+// ============================================================
 // 应用全局数据（游戏存档）
 // ============================================================
 
 export interface AppData {
-  vocabulary: VocabularyWord[];
-  checkin: CheckInRecord[];
-  dictation: DictationSession[];
-  podcastFeeds: PodcastPreset[];
-  recordingHistory: RecordingFile[];
-  writingFiles: WritingFileInfo[];
-  player: { source: MediaSource | null };
+  player: {
+    source: MediaSource | null;
+    positions: Record<string, number>;
+    recentSources: MediaSource[];
+    savedLoops: Record<string, SavedLoop[]>;
+  };
 }
 
 export const DEFAULT_APP_DATA: AppData = {
-  vocabulary: [],
-  checkin: [],
-  dictation: [],
-  podcastFeeds: [],
-  recordingHistory: [],
-  writingFiles: [],
-  player: { source: null },
+  player: { source: null, positions: {}, recentSources: [], savedLoops: {} },
 };

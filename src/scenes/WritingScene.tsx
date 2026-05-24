@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { readTextFile, writeFile, remove, exists } from "@tauri-apps/plugin-fs";
 import type { SceneProps } from "@/App";
 import PageHeader from "@/components/shared/PageHeader";
 import FileList from "@/components/writing/FileList";
@@ -8,79 +7,98 @@ import DiaryView from "@/components/writing/DiaryView";
 import { openFolder } from "@/utils/openFolder";
 import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 import type { WritingFileInfo } from "@/types";
+import { useWritingStore } from "@/stores/writingStore";
 
 type Tab = "writing" | "diary";
 
-function sanitizeFilename(title: string): string {
-  return title.replace(/[<>:"/\\|?*]/g, "").trim() || "未命名";
-}
-
-export default function WritingScene({ data, setData }: SceneProps) {
+export default function WritingScene({ toast }: SceneProps) {
   const [tab, setTab] = useState<Tab>("writing");
   const [currentFile, setCurrentFile] = useState<WritingFileInfo | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [saved, setSaved] = useState(true);
-  const [loading, setLoading] = useState(true);
-
-  const files = data.writingFiles;
+  const {
+    files,
+    loaded,
+    loadFiles,
+    createWritingFile,
+    readWritingFile,
+    saveWritingFile,
+    deleteWritingFile,
+  } = useWritingStore();
+  const pendingContent = useWritingStore((s) => s.pendingContent);
+  const clearPendingContent = useWritingStore((s) => s.clearPendingContent);
 
   // Load writing files on mount
   useEffect(() => {
     (async () => {
       try {
-        await ensureDataDirs();
-        setLoading(false);
-      } catch { setLoading(false); }
+        if (!loaded) {
+          await loadFiles();
+        }
+      } catch (err) {
+        console.error("Failed to initialize writing directories:", err);
+        toast("写作目录初始化失败", "error");
+      }
     })();
-  }, []);
+  }, [loaded, loadFiles, toast]);
+
+  // Consume pending content from cross-module navigation
+  useEffect(() => {
+    if (!pendingContent || !loaded) return;
+    (async () => {
+      try {
+        const fileInfo = await createWritingFile(pendingContent.title, pendingContent.content);
+        setCurrentFile(fileInfo);
+        setTitle(fileInfo.name);
+        setContent(pendingContent.content);
+        setSaved(true);
+        setTab("writing");
+        clearPendingContent();
+        toast("已自动创建写作文件", "success");
+      } catch (err) {
+        console.error("Failed to create file from pending content:", err);
+        toast("自动创建写作文件失败", "error");
+        clearPendingContent();
+      }
+    })();
+  }, [pendingContent, loaded, clearPendingContent, createWritingFile, toast]);
 
   const selectFile = async (f: WritingFileInfo) => {
     try {
-      const raw = await readTextFile(f.path);
+      const raw = await readWritingFile(f.path);
       setCurrentFile(f); setTitle(f.name); setContent(raw); setSaved(true);
-    } catch (err) { console.error("Failed to read file:", err); }
+    } catch (err) {
+      console.error("Failed to read file:", err);
+      toast("文章读取失败", "error");
+    }
   };
 
   const handleDelete = async (f: WritingFileInfo) => {
     try {
-      await remove(f.path);
-      const next = files.filter(x => x.path !== f.path);
+      await deleteWritingFile(f.path);
       if (currentFile?.path === f.path) {
         setCurrentFile(null); setTitle(""); setContent("");
       }
-      setData({ writingFiles: next });
-    } catch (err) { console.error("Failed to delete file:", err); }
+      toast("文章已删除", "success");
+    } catch (err) {
+      console.error("Failed to delete file:", err);
+      toast("文章删除失败", "error");
+    }
   };
 
   const handleSave = async () => {
     if (!title.trim()) return;
     try {
-      await ensureDataDirs();
-      const dir = await dataPaths.writing();
-      const baseName = sanitizeFilename(title);
-      let name = baseName;
-      let newPath = `${dir}/${name}.txt`;
-      let counter = 2;
-      while (newPath !== currentFile?.path && await exists(newPath)) {
-        name = `${baseName}-${counter}`;
-        newPath = `${dir}/${name}.txt`;
-        counter++;
-      }
-      if (currentFile && currentFile.path !== newPath) {
-        const oldExists = await exists(currentFile.path);
-        if (oldExists) await remove(currentFile.path);
-      }
-      await writeFile(newPath, new TextEncoder().encode(content));
-      const fileInfo: WritingFileInfo = { name, path: newPath, updatedAt: new Date().toISOString() };
-      const existingIdx = files.findIndex(x => x.path === newPath);
-      const next = existingIdx >= 0
-        ? files.map(x => x.path === newPath ? fileInfo : x)
-        : [fileInfo, ...files.filter(x => x.path !== currentFile?.path)];
+      const fileInfo = await saveWritingFile(title, content, currentFile?.path);
       setCurrentFile(fileInfo);
+      setTitle(fileInfo.name);
       setSaved(true);
-      setData({ writingFiles: next });
-    } catch (err) { console.error("Failed to save file:", err); }
+      toast("文章已保存", "success");
+    } catch (err) {
+      console.error("Failed to save file:", err);
+      toast("文章保存失败", "error");
+    }
   };
 
   const switchTab = (newTab: Tab) => {
@@ -114,7 +132,7 @@ export default function WritingScene({ data, setData }: SceneProps) {
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-3">
             <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-4">
-              <FileList files={files} currentFile={currentFile} loading={loading}
+              <FileList files={files} currentFile={currentFile} loading={!loaded}
                 onSelect={selectFile} onDelete={handleDelete} onNew={() => { setCurrentFile(null); setTitle(""); setContent(""); setSaved(true); }} />
             </div>
           </div>
@@ -128,7 +146,7 @@ export default function WritingScene({ data, setData }: SceneProps) {
       ) : (
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-8">
-            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6"><DiaryView /></div>
+            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6"><DiaryView toast={toast} /></div>
           </div>
           <div className="col-span-4">
             <div className="rounded-xl bg-gradient-to-r from-warm-50 to-primary-50 border border-warm-100 p-4">
@@ -141,9 +159,25 @@ export default function WritingScene({ data, setData }: SceneProps) {
                 <li>· 昨天的日记无法修改，保持真实</li>
               </ul>
               <div className="mt-3 flex gap-2">
-                <button onClick={async () => { await ensureDataDirs(); await openFolder(await dataPaths.diary()); }}
+                <button onClick={async () => {
+                  try {
+                    await ensureDataDirs();
+                    await openFolder(await dataPaths.diary());
+                  } catch (err) {
+                    console.error("Failed to open diary folder:", err);
+                    toast("打开日记目录失败", "error");
+                  }
+                }}
                   className="text-xs text-primary-600 hover:text-primary-700 font-medium">打开日记目录 →</button>
-                <button onClick={async () => { await ensureDataDirs(); await openFolder(await dataPaths.writing()); }}
+                <button onClick={async () => {
+                  try {
+                    await ensureDataDirs();
+                    await openFolder(await dataPaths.writing());
+                  } catch (err) {
+                    console.error("Failed to open writing folder:", err);
+                    toast("打开写作目录失败", "error");
+                  }
+                }}
                   className="text-xs text-primary-600 hover:text-primary-700 font-medium">打开写作目录 →</button>
               </div>
             </div>

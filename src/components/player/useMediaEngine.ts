@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { MediaSource, SubtitleLine } from "@/types";
+import { allowMediaFile, resolveLocalMediaSrc } from "@/utils/mediaAsset";
 
 export type PlayState = "idle" | "loading" | "ready" | "error";
 
@@ -17,25 +18,32 @@ interface UseMediaEngineOptions {
   volume: number;
   abLoop: { start: number; end: number } | null;
   subtitles: SubtitleLine[];
+  initialPosition: number;
+  subtitleOffset: number;
   onStateChange: (patch: Partial<MediaEngineState>) => void;
 }
 
 export function useMediaEngine({
-  source, playbackRate, volume, abLoop, subtitles, onStateChange,
+  source, playbackRate, volume, abLoop, subtitles, initialPosition, subtitleOffset, onStateChange,
 }: UseMediaEngineOptions) {
   const mediaRef = useRef<HTMLMediaElement | null>(null);
   const abLoopRef = useRef(abLoop);
   const subtitlesRef = useRef(subtitles);
   const callbackRef = useRef(onStateChange);
+  const initialPosRef = useRef(initialPosition);
+  const subtitleOffsetRef = useRef(subtitleOffset);
 
   useEffect(() => { abLoopRef.current = abLoop; }, [abLoop]);
   useEffect(() => { subtitlesRef.current = subtitles; }, [subtitles]);
   useEffect(() => { callbackRef.current = onStateChange; }, [onStateChange]);
+  useEffect(() => { initialPosRef.current = initialPosition; }, [initialPosition]);
+  useEffect(() => { subtitleOffsetRef.current = subtitleOffset; }, [subtitleOffset]);
 
   // Sync source changes
   useEffect(() => {
     const media = mediaRef.current;
     if (!media) return;
+    let cancelled = false;
     const cb = () => callbackRef.current;
     if (!source) {
       media.pause();
@@ -43,13 +51,33 @@ export function useMediaEngine({
       cb()({ isPlaying: false, playState: "idle", currentTime: 0 });
       return;
     }
-    cb()({ playState: "loading" });
-    media.src = source.path;
-    media.playbackRate = playbackRate;
-    media.volume = volume;
-    media.load();
-    cb()({ currentTime: 0, isPlaying: false });
-  }, [source?.path, source?.type, playbackRate, volume]);
+    const loadSource = async () => {
+      cb()({ playState: "loading" });
+      if (source.type === "file") {
+        await allowMediaFile(source.path);
+      }
+      if (cancelled) return;
+      media.src = source.type === "file" ? resolveLocalMediaSrc(source.path) : source.path;
+      media.playbackRate = playbackRate;
+      media.volume = volume;
+      media.load();
+      cb()({ currentTime: 0, isPlaying: false });
+    };
+    loadSource();
+    return () => {
+      cancelled = true;
+    };
+  }, [source?.path, source?.type]);
+
+  useEffect(() => {
+    const media = mediaRef.current;
+    if (media) media.playbackRate = playbackRate;
+  }, [playbackRate]);
+
+  useEffect(() => {
+    const media = mediaRef.current;
+    if (media) media.volume = volume;
+  }, [volume]);
 
   // Wire media events once
   useEffect(() => {
@@ -64,6 +92,11 @@ export function useMediaEngine({
       callbackRef.current({ playState: "ready" });
       const d = media.duration;
       if (isFinite(d)) callbackRef.current({ duration: d });
+      const pos = initialPosRef.current;
+      if (pos > 0) {
+        media.currentTime = pos;
+        initialPosRef.current = 0;
+      }
     };
     const onWaiting = () => callbackRef.current({ playState: "loading" });
     const onError = () => callbackRef.current({ playState: "error" });
@@ -78,8 +111,10 @@ export function useMediaEngine({
         media.currentTime = loop.start;
         return;
       }
+      const offset = subtitleOffsetRef.current / 1000;
+      const effectiveTime = ct + offset;
       const subs = subtitlesRef.current;
-      const idx = subs.findIndex(sub => ct >= sub.start && ct < sub.end);
+      const idx = subs.findIndex(sub => effectiveTime >= sub.start && effectiveTime < sub.end);
       callbackRef.current({ currentTime: ct, activeSubtitleIndex: idx });
     };
     const onEnded = () => callbackRef.current({ isPlaying: false });

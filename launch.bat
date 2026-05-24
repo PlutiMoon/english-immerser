@@ -5,8 +5,8 @@ cd /d "%~dp0"
 set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
 
 echo  ╔══════════════════════════════╗
-echo  ║   English Immerser         ║
-echo  ║   听力带路 兴趣驱动         ║
+echo  ║   English Immerser           ║
+echo  ║   听力带路 兴趣驱动          ║
 echo  ╚══════════════════════════════╝
 echo.
 

@@ -3,13 +3,14 @@ interface SessionResultProps {
   keywords: string;
   retellText: string;
   onNewSession: () => void;
+  onAddToVocabulary: () => void;
+  onSaveToWriting: () => void;
+  onRepeatSource: () => void;
 }
 
 export default function SessionResult({
-  sourceName,
-  keywords,
-  retellText,
-  onNewSession,
+  sourceName, keywords, retellText,
+  onNewSession, onAddToVocabulary, onSaveToWriting, onRepeatSource,
 }: SessionResultProps) {
   return (
     <div className="space-y-5">
@@ -42,12 +43,27 @@ export default function SessionResult({
         </div>
       </div>
 
-      <button
-        onClick={onNewSession}
-        className="rounded-lg bg-primary-500 px-6 py-2.5 text-sm font-medium text-white hover:bg-primary-600 transition-colors"
-      >
-        再来一次
-      </button>
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-2">
+        <button onClick={onNewSession}
+          className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
+          再来一次
+        </button>
+        {keywords.trim() && (
+          <button onClick={onAddToVocabulary}
+            className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-700 hover:bg-amber-100 transition-colors">
+            📖 关键词加入习词本
+          </button>
+        )}
+        <button onClick={onSaveToWriting}
+          className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100 transition-colors">
+          ✍️ 复述保存到写作
+        </button>
+        <button onClick={onRepeatSource}
+          className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 transition-colors">
+          🔄 同素材再来一组
+        </button>
+      </div>
     </div>
   );
 }

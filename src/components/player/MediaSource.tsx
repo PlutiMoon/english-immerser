@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { exists, readTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
-import { getSubtitleCandidates, detectAndParse } from "@/utils/subtitleParser";
+import { tryLoadSubtitles, loadSubtitleFile } from "@/utils/subtitleParser";
 import { formatDuration } from "@/utils/formatDuration";
-import type { MediaSource as MediaSourceType, PodcastPreset, PodcastFeed, SubtitleLine } from "@/types";
+import type { MediaSource as MediaSourceType, PodcastPreset, PodcastFeed, SubtitleLine, ToastType } from "@/types";
 
 type SourceTab = "file" | "url" | "podcast";
 
@@ -12,6 +11,7 @@ interface MediaSourceProps {
   source: MediaSourceType | null;
   onSourceChange: (source: MediaSourceType | null) => void;
   onSubtitlesChange: (subtitles: SubtitleLine[]) => void;
+  recentSources: MediaSourceType[];
   presets: PodcastPreset[];
   customFeeds: PodcastPreset[];
   feedCache: Record<string, PodcastFeed>;
@@ -19,14 +19,17 @@ interface MediaSourceProps {
   error: string | null;
   onFetchFeed: (url: string) => Promise<PodcastFeed>;
   onAddCustomFeed: (name: string, url: string) => void;
+  onRemoveCustomFeed: (url: string) => void;
   onLoadCustomFeeds: () => Promise<void>;
+  toast?: (message: string, type?: ToastType, duration?: number) => void;
 }
 
 export default function MediaSource(props: MediaSourceProps) {
   const {
-    source, onSourceChange, onSubtitlesChange,
+    source, onSourceChange, onSubtitlesChange, recentSources,
     presets, customFeeds, feedCache, loading, error,
-    onFetchFeed, onAddCustomFeed, onLoadCustomFeeds,
+    onFetchFeed, onAddCustomFeed, onRemoveCustomFeed, onLoadCustomFeeds,
+    toast,
   } = props;
 
   const [tab, setTab] = useState<SourceTab>("podcast");
@@ -38,27 +41,47 @@ export default function MediaSource(props: MediaSourceProps) {
   const allFeeds = [...presets, ...customFeeds];
 
   const handleOpenFile = async () => {
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: "媒体文件", extensions: ["mp3", "mp4", "m4a", "wav", "ogg", "webm", "mkv", "avi", "mov"] }],
-    });
-    if (selected) {
-      const path = selected as string;
-      const name = path.split(/[/\\]/).pop() || path;
-      onSourceChange({ type: "file", path, name });
-      const candidates = getSubtitleCandidates(path);
-      for (const subPath of candidates) {
-        try {
-          if (await exists(subPath)) {
-            const content = await readTextFile(subPath);
-            const subs = detectAndParse(content);
-            if (subs.length > 0) {
-              onSubtitlesChange(subs);
-              break;
-            }
-          }
-        } catch { /* try next */ }
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "媒体文件", extensions: ["mp3", "mp4", "m4a", "wav", "ogg", "webm", "mkv", "avi", "mov"] }],
+      });
+      if (selected) {
+        const path = selected as string;
+        const name = path.split(/[/\\]/).pop() || path;
+        onSourceChange({ type: "file", path, name });
+        toast?.("已加载本地媒体", "success");
+        const subs = await tryLoadSubtitles(path);
+        if (subs.length > 0) {
+          onSubtitlesChange(subs);
+          toast?.("已自动加载同名字幕", "success");
+        }
       }
+    } catch (err) {
+      console.error("Failed to open media file:", err);
+      toast?.("打开媒体文件失败", "error");
+    }
+  };
+
+  const handleImportSubtitle = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "字幕文件", extensions: ["srt", "vtt", "lrc"] }],
+      });
+      if (selected) {
+        const path = selected as string;
+        const subs = await loadSubtitleFile(path);
+        if (subs.length > 0) {
+          onSubtitlesChange(subs);
+          toast?.("已加载字幕", "success");
+        } else {
+          toast?.("未识别到有效字幕内容", "warning");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to import subtitle:", err);
+      toast?.("导入字幕失败", "error");
     }
   };
 
@@ -71,7 +94,11 @@ export default function MediaSource(props: MediaSourceProps) {
 
   const handleFeedSelect = async (url: string) => {
     setSelectedFeed(url);
-    try { await onFetchFeed(url); } catch { /* error in store */ }
+    try {
+      await onFetchFeed(url);
+    } catch {
+      toast?.("播客源加载失败", "error");
+    }
   };
 
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -86,9 +113,10 @@ export default function MediaSource(props: MediaSourceProps) {
     try {
       const localPath = await invoke<string>("download_audio", { url: audioUrl });
       onSourceChange({ type: "file", path: localPath, name: title });
+      toast?.("已下载到本地缓存", "success");
     } catch (err) {
       console.error("Download failed:", err);
-      alert("下载失败，该源可能无法直连。请尝试其他播客源。");
+      toast?.("下载失败，该源可能无法直连。请尝试其他播客源。", "error", 5000);
     } finally { setDownloading(null); }
   };
 
@@ -111,7 +139,28 @@ export default function MediaSource(props: MediaSourceProps) {
               <p className="text-sm">点击选择音频或视频文件</p>
               <p className="text-xs text-gray-400 mt-1">支持 MP3 / MP4 / M4A / WAV / OGG</p>
             </button>
-            {source?.type === "file" && <p className="text-sm text-primary-600 truncate">已加载: {source.name}</p>}
+            {source?.type === "file" && (
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-primary-600 truncate flex-1">已加载: {source.name}</p>
+                <button onClick={handleImportSubtitle}
+                  className="shrink-0 text-xs text-gray-400 hover:text-primary-600 transition-colors"
+                  title="手动导入字幕文件">
+                  ↑ 导入字幕
+                </button>
+              </div>
+            )}
+            {/* Recent sources */}
+            {recentSources.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs text-gray-400 font-medium">最近播放</p>
+                {recentSources.filter(s => s.type === "file").slice(0, 5).map((s, i) => (
+                  <button key={i} onClick={() => { onSourceChange(s); }}
+                    className={`w-full text-left rounded px-2 py-1.5 text-xs truncate transition-colors ${source?.path === s.path ? "bg-primary-50 text-primary-700" : "text-gray-600 hover:bg-gray-50"}`}>
+                    <span className="mr-1">🎧</span>{s.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {tab === "url" && (
@@ -130,13 +179,25 @@ export default function MediaSource(props: MediaSourceProps) {
           <div className="space-y-3">
             {!selectedFeed ? (
               <div className="space-y-2">
-                {allFeeds.map(feed => (
-                  <button key={feed.url} onClick={() => handleFeedSelect(feed.url)}
-                    className="w-full rounded-lg border border-gray-100 px-3 py-2.5 text-left text-sm hover:bg-primary-50 transition-colors">
-                    <span className="font-medium text-gray-700">{feed.name}</span>
-                    <span className="ml-2 text-xs text-gray-400">RSS</span>
-                  </button>
-                ))}
+                {allFeeds.map(feed => {
+                  const isCustom = customFeeds.some(c => c.url === feed.url);
+                  return (
+                    <div key={feed.url} className="group flex items-center rounded-lg border border-gray-100 hover:bg-primary-50 transition-colors">
+                      <button onClick={() => handleFeedSelect(feed.url)}
+                        className="flex-1 px-3 py-2.5 text-left text-sm">
+                        <span className="font-medium text-gray-700">{feed.name}</span>
+                        <span className="ml-2 text-xs text-gray-400">{isCustom ? "自定义" : "RSS"}</span>
+                      </button>
+                      {isCustom && (
+                        <button onClick={(e) => { e.stopPropagation(); onRemoveCustomFeed(feed.url); }}
+                          className="shrink-0 px-2 py-1 mr-1 text-xs text-gray-300 hover:text-red-500 transition-colors"
+                          title="删除此播客源">
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
                 {allFeeds.length === 0 && <p className="text-sm text-gray-400 text-center py-4">暂无播客源</p>}
                 <div className="border-t border-gray-100 pt-3 mt-3">
                   <AddCustomFeed onAdd={onAddCustomFeed} />

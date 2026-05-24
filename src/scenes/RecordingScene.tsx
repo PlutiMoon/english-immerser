@@ -9,13 +9,16 @@ import { useMediaRecorder } from "@/hooks/useMediaRecorder";
 import { openFolder } from "@/utils/openFolder";
 import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 import type { RecordingStatus, RecordingFile } from "@/types";
+import { useRecordingStore } from "@/stores/recordingStore";
 
-export default function RecordingScene({ data, setData }: SceneProps) {
+export default function RecordingScene({ toast }: SceneProps) {
   const [status, setStatus] = useState<RecordingStatus>("idle");
   const [duration, setDuration] = useState(0);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
-  const loaded = true; // history comes from AppData
+  const { history, loaded, loadHistory, saveRecordingFile, deleteRecordingFile } = useRecordingStore();
+  const recovery = useRecordingStore((s) => s.recovery);
+  const clearRecovery = useRecordingStore((s) => s.clearRecovery);
 
   const { start, stop, cleanup } = useMediaRecorder({
     onStatusChange: setStatus,
@@ -23,11 +26,26 @@ export default function RecordingScene({ data, setData }: SceneProps) {
     onRecordingComplete: (b, url) => { setBlob(b); setPlaybackUrl(url); setStatus("idle"); },
   });
 
+  useEffect(() => {
+    if (!loaded) {
+      loadHistory();
+    }
+  }, [loaded, loadHistory]);
+
+  useEffect(() => {
+    if (recovery) {
+      const detail = recovery.backupPath
+        ? `已备份到 ${recovery.backupPath}`
+        : `已跳过 ${recovery.invalidCount} 条异常记录`;
+      toast(`${recovery.label}数据已自动恢复，${detail}`, "warning", 7000);
+      clearRecovery();
+    }
+  }, [recovery, clearRecovery, toast]);
+
   useEffect(() => () => cleanup(), [cleanup]);
 
-  const handleSave = async (file: RecordingFile) => {
-    const next = [file, ...data.recordingHistory.filter(item => item.path !== file.path)];
-    setData({ recordingHistory: next });
+  const handleSave = async (blob: Blob, name: string) => {
+    await saveRecordingFile(blob, name);
   };
 
   const handleReset = () => {
@@ -38,8 +56,8 @@ export default function RecordingScene({ data, setData }: SceneProps) {
     setDuration(0);
   };
 
-  const handleDelete = (path: string) => {
-    setData({ recordingHistory: data.recordingHistory.filter(h => h.path !== path) });
+  const handleDelete = async (file: RecordingFile) => {
+    await deleteRecordingFile(file);
   };
 
   return (
@@ -51,10 +69,11 @@ export default function RecordingScene({ data, setData }: SceneProps) {
             <RecordButton status={status} duration={duration} onStart={start} onStop={stop} />
           </div>
           <PlaybackPanel blob={blob} playbackUrl={playbackUrl}
-            duration={duration} onSave={handleSave} onReset={handleReset} />
-          <RecordingsList history={data.recordingHistory} loaded={loaded}
+            duration={duration} onSave={handleSave} onReset={handleReset} toast={toast} />
+          <RecordingsList history={history} loaded={loaded}
             onPlay={(file) => { setPlaybackUrl(file.path); setStatus("idle"); }}
-            onDelete={handleDelete} />
+            onDelete={handleDelete}
+            toast={toast} />
         </div>
         <div className="col-span-5">
           <PromptCard />
@@ -66,7 +85,15 @@ export default function RecordingScene({ data, setData }: SceneProps) {
               <li>· 每天 5-10 分钟自言自语，坚持就有效</li>
               <li>· 录音保存在本地，不会上传到任何服务器</li>
             </ul>
-            <button onClick={async () => { await ensureDataDirs(); await openFolder(await dataPaths.recordings()); }}
+            <button onClick={async () => {
+              try {
+                await ensureDataDirs();
+                await openFolder(await dataPaths.recordings());
+              } catch (err) {
+                console.error("Failed to open recordings folder:", err);
+                toast("打开录音文件夹失败", "error");
+              }
+            }}
               className="mt-3 text-xs text-primary-600 hover:text-primary-700 font-medium">打开录音文件夹 →</button>
           </div>
         </div>

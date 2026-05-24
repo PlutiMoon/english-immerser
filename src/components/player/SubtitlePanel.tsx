@@ -1,25 +1,68 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { formatSeconds } from "@/utils/formatSeconds";
+import { useVocabularyStore } from "@/stores/vocabularyStore";
+import { useWritingStore } from "@/stores/writingStore";
+import type { Scene } from "@/App";
 import type { SubtitleLine } from "@/types";
 
 interface SubtitlePanelProps {
   mediaRef: React.RefObject<HTMLMediaElement | null>;
   subtitles: SubtitleLine[];
   activeSubtitleIndex: number;
+  subtitleOffset: number;
+  onSubtitleOffsetChange: (offset: number) => void;
+  onSceneChange?: (scene: Scene) => void;
+  sourceName?: string;
+  sourcePath?: string;
 }
 
-export default function SubtitlePanel({ mediaRef, subtitles, activeSubtitleIndex }: SubtitlePanelProps) {
+const OFFSET_STEPS = [-500, -100, -50, 0, 50, 100, 500];
+
+export default function SubtitlePanel({
+  mediaRef, subtitles, activeSubtitleIndex,
+  subtitleOffset, onSubtitleOffsetChange,
+  onSceneChange, sourceName, sourcePath,
+}: SubtitlePanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [openMenuIdx, setOpenMenuIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (activeSubtitleIndex < 0) return;
-    const el = scrollRef.current?.children[activeSubtitleIndex] as HTMLElement;
+    const el = scrollRef.current?.children[activeSubtitleIndex + 1] as HTMLElement; // +1 for offset row
     el?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [activeSubtitleIndex]);
+
+  useEffect(() => {
+    const handleClick = () => {
+      if (openMenuIdx !== null) setOpenMenuIdx(null);
+    };
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [openMenuIdx]);
 
   const handleClick = (start: number) => {
     const media = mediaRef.current;
     if (media) media.currentTime = start;
+  };
+
+  const handleAddToVocabulary = (e: React.MouseEvent, text: string, startTime: number) => {
+    e.stopPropagation();
+    useVocabularyStore.getState().setPendingWord({
+      word: text, source: sourceName ?? "",
+      mediaPath: sourcePath, mediaTimestamp: startTime,
+    });
+    if (onSceneChange) onSceneChange("vocabulary");
+    setOpenMenuIdx(null);
+  };
+
+  const handleSetWritingPrompt = (e: React.MouseEvent, text: string, startTime: number) => {
+    e.stopPropagation();
+    useWritingStore.getState().setPendingContent({
+      title: `字幕灵感 - ${formatSeconds(startTime)}`,
+      content: `Prompt: ${text}\n\n`,
+    });
+    if (onSceneChange) onSceneChange("writing");
+    setOpenMenuIdx(null);
   };
 
   if (subtitles.length === 0) {
@@ -31,14 +74,57 @@ export default function SubtitlePanel({ mediaRef, subtitles, activeSubtitleIndex
   }
 
   return (
-    <div ref={scrollRef} className="max-h-48 overflow-y-auto rounded-xl bg-gray-50 border border-gray-100 p-2 space-y-1">
-      {subtitles.map((line, i) => (
-        <button key={i} onClick={() => handleClick(line.start)}
-          className={`w-full rounded px-3 py-1.5 text-left text-sm transition-colors ${i === activeSubtitleIndex ? "bg-primary-100 text-primary-800 font-medium" : "text-gray-600 hover:bg-gray-100"}`}>
-          <span className="text-xs text-gray-400 mr-2 font-mono">{formatSeconds(line.start)}</span>
-          {line.text}
-        </button>
-      ))}
+    <div className="space-y-2">
+      {/* Offset controls */}
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className="text-xs text-gray-400 mr-1">偏移:</span>
+        {OFFSET_STEPS.map(step => (
+          <button key={step}
+            onClick={() => onSubtitleOffsetChange(step)}
+            className={`rounded px-1.5 py-0.5 text-xs transition-colors ${
+              subtitleOffset === step
+                ? "bg-primary-100 text-primary-700 font-medium"
+                : "text-gray-500 hover:bg-gray-100"
+            }`}>
+            {step > 0 ? "+" : ""}{step}ms
+          </button>
+        ))}
+      </div>
+
+      {/* Subtitle list */}
+      <div ref={scrollRef} className="max-h-44 overflow-y-auto rounded-xl bg-gray-50 border border-gray-100 p-2 space-y-1">
+        {subtitles.map((line, i) => (
+          <div key={i} className={`group flex items-center rounded px-3 py-1.5 text-left text-sm transition-colors ${i === activeSubtitleIndex ? "bg-primary-100 text-primary-800 font-medium" : "text-gray-600 hover:bg-gray-100"}`}>
+            <button onClick={() => handleClick(line.start)} className="flex-1 text-left min-w-0">
+              <span className="text-xs text-gray-400 mr-2 font-mono">{formatSeconds(line.start)}</span>
+              {line.text}
+            </button>
+            {/* "+" action button */}
+            <div className="relative shrink-0 ml-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); setOpenMenuIdx(openMenuIdx === i ? null : i); }}
+                className="opacity-0 group-hover:opacity-100 rounded px-1 text-xs text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-all"
+                title="更多操作">
+                ···
+              </button>
+              {openMenuIdx === i && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 w-36">
+                  <button
+                    onClick={(e) => handleAddToVocabulary(e, line.text, line.start)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-primary-50 hover:text-primary-700">
+                    📖 添加生词
+                  </button>
+                  <button
+                    onClick={(e) => handleSetWritingPrompt(e, line.text, line.start)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700">
+                    ✍️ 设为写作提示
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

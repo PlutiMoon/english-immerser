@@ -22,7 +22,13 @@ pub fn run() {
                 .expect("failed to create recordings dir");
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::fetch_rss, commands::download_audio, commands::open_folder, commands::open_cache_dir])
+        .invoke_handler(tauri::generate_handler![
+            commands::fetch_rss,
+            commands::download_audio,
+            commands::allow_media_file,
+            commands::open_folder,
+            commands::open_cache_dir
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

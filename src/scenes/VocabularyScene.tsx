@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { SceneProps } from "@/App";
 import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/shared/StatCard";
@@ -8,10 +8,11 @@ import ReviewPanel from "@/components/vocabulary/ReviewPanel";
 import { openFolder } from "@/utils/openFolder";
 import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
 import type { VocabularyWord } from "@/types";
+import { useVocabularyStore } from "@/stores/vocabularyStore";
 
 type SortMode = "newest" | "lastReviewed" | "reviewCount";
 
-export default function VocabularyScene({ data, setData }: SceneProps) {
+export default function VocabularyScene({ data, setData, toast, onSceneChange }: SceneProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [sortBy, setSortBy] = useState<SortMode>("newest");
@@ -19,7 +20,44 @@ export default function VocabularyScene({ data, setData }: SceneProps) {
   const [showForm, setShowForm] = useState(false);
   const [reviewing, setReviewing] = useState(false);
 
-  const words = data.vocabulary;
+  const words = useVocabularyStore((s) => s.words);
+  const loadWords = useVocabularyStore((s) => s.loadWords);
+  const addWord = useVocabularyStore((s) => s.addWord);
+  const updateWord = useVocabularyStore((s) => s.updateWord);
+  const deleteWord = useVocabularyStore((s) => s.deleteWord);
+  const markReviewed = useVocabularyStore((s) => s.markReviewed);
+  const recovery = useVocabularyStore((s) => s.recovery);
+  const clearRecovery = useVocabularyStore((s) => s.clearRecovery);
+  const pendingWord = useVocabularyStore((s) => s.pendingWord);
+  const clearPendingWord = useVocabularyStore((s) => s.clearPendingWord);
+
+  useEffect(() => { loadWords(); }, [loadWords]);
+
+  // Consume pending word from cross-module navigation
+  useEffect(() => {
+    if (pendingWord) {
+      setEditingWord({
+        id: "", word: pendingWord.word,
+        englishDefinition: "", selfSentence: "",
+        source: pendingWord.source,
+        createdAt: "", lastReviewedAt: null, reviewCount: 0,
+        mediaPath: pendingWord.mediaPath,
+        mediaTimestamp: pendingWord.mediaTimestamp,
+      });
+      setShowForm(true);
+      clearPendingWord();
+    }
+  }, [pendingWord, clearPendingWord]);
+
+  useEffect(() => {
+    if (recovery) {
+      const detail = recovery.backupPath
+        ? `已备份到 ${recovery.backupPath}`
+        : `已跳过 ${recovery.invalidCount} 条异常记录`;
+      toast(`${recovery.label}数据已自动恢复，${detail}`, "warning", 7000);
+      clearRecovery();
+    }
+  }, [recovery, clearRecovery, toast]);
 
   const allSources = useMemo(
     () => [...new Set(words.map(w => w.source).filter(Boolean))],
@@ -62,30 +100,37 @@ export default function VocabularyScene({ data, setData }: SceneProps) {
     sources: allSources.length,
   }), [words, allSources]);
 
-  const addWord = (input: Parameters<typeof handleSave>[0]) => {
-    const word: VocabularyWord = {
-      id: crypto.randomUUID(), ...input,
-      createdAt: new Date().toISOString(), lastReviewedAt: null, reviewCount: 0,
-    };
-    setData({ vocabulary: [...data.vocabulary, word] });
-  };
-
-  const updateWord = (id: string, updates: Partial<VocabularyWord>) => {
-    setData({ vocabulary: data.vocabulary.map(w => w.id === id ? { ...w, ...updates } : w) });
-  };
-
-  const deleteWord = (id: string) => {
-    setData({ vocabulary: data.vocabulary.filter(w => w.id !== id) });
-  };
-
   const handleSave = (input: { word: string; englishDefinition: string; selfSentence: string; source: string }) => {
     if (editingWord) {
-      updateWord(editingWord.id, input);
+      updateWord(editingWord.id, input).catch(() => toast("保存失败", "error"));
     } else {
-      addWord(input);
+      addWord(input).catch(() => toast("添加失败", "error"));
     }
     setShowForm(false);
     setEditingWord(null);
+  };
+
+  const handleTimestampJump = (word: VocabularyWord) => {
+    if (word.mediaPath == null || word.mediaTimestamp == null) {
+      toast("当前词条没有可跳转的媒体来源", "warning");
+      return;
+    }
+    setData({
+      player: {
+        ...data.player,
+        source: {
+          type: "file",
+          path: word.mediaPath,
+          name: word.source || word.word,
+        },
+        positions: {
+          ...data.player.positions,
+          [word.mediaPath]: word.mediaTimestamp,
+        },
+      },
+    });
+    onSceneChange("player");
+    toast("已跳转到播放器", "success");
   };
 
   return (
@@ -124,19 +169,22 @@ export default function VocabularyScene({ data, setData }: SceneProps) {
           className="rounded-lg bg-warm-50 border border-warm-200 px-4 py-2 text-sm font-medium text-warm-700 hover:bg-warm-100 disabled:opacity-40">
           进入复习
         </button>
-        <button onClick={async () => { await ensureDataDirs(); await openFolder(await dataPaths.root()); }}
+        <button onClick={async () => {
+          try {
+            await ensureDataDirs();
+            await openFolder(await dataPaths.root());
+          } catch (err) {
+            console.error("Failed to open data folder:", err);
+            toast("打开数据目录失败", "error");
+          }
+        }}
           className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-xs text-gray-500 hover:bg-gray-100"
           title="打开数据文件夹">打开数据目录</button>
       </div>
 
       {reviewing ? (
         <ReviewPanel words={words} onClose={() => setReviewing(false)}
-          onMarkReviewed={(id) => {
-            const word = words.find(w => w.id === id);
-            if (word) {
-              updateWord(id, { lastReviewedAt: new Date().toISOString(), reviewCount: word.reviewCount + 1 });
-            }
-          }} />
+          onMarkReviewed={(id) => { markReviewed(id); }} />
       ) : filteredWords.length === 0 ? (
         <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-12 text-center">
           {words.length === 0 ? (
@@ -160,7 +208,8 @@ export default function VocabularyScene({ data, setData }: SceneProps) {
           {filteredWords.map(w => (
             <WordCard key={w.id} word={w}
               onEdit={() => { setEditingWord(w); setShowForm(true); }}
-              onDelete={() => deleteWord(w.id)} />
+              onDelete={() => deleteWord(w.id)}
+              onTimestampClick={w.mediaPath && w.mediaTimestamp != null ? () => handleTimestampJump(w) : undefined} />
           ))}
         </div>
       )}

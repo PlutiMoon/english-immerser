@@ -1,10 +1,10 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { readTextFile, writeFile, exists } from "@tauri-apps/plugin-fs";
 import { dataFiles, ensureDataDirs } from "@/utils/dataPath";
 import { debounce } from "@/utils/debounce";
-import { safeParseJSON, isValidPodcastPreset } from "@/utils/validators";
-import type { PodcastFeed, PodcastPreset } from "@/types";
+import { loadJsonArray, writeJsonArray } from "@/utils/jsonStorage";
+import { isValidPodcastPreset } from "@/utils/validators";
+import type { PodcastFeed, PodcastPreset, JsonRecoveryNotice } from "@/types";
 
 const PRESETS: PodcastPreset[] = [
   {
@@ -31,11 +31,13 @@ interface PodcastStore {
   feedCache: Record<string, PodcastFeed>;
   loading: boolean;
   error: string | null;
+  recovery: JsonRecoveryNotice | null;
 
   fetchFeed: (url: string) => Promise<PodcastFeed>;
   addCustomFeed: (name: string, url: string) => void;
   removeCustomFeed: (url: string) => void;
   loadCustomFeeds: () => Promise<void>;
+  clearRecovery: () => void;
 }
 
 export const usePodcastStore = create<PodcastStore>((set, get) => {
@@ -43,10 +45,7 @@ export const usePodcastStore = create<PodcastStore>((set, get) => {
     try {
       await ensureDataDirs();
       const filePath = await dataFiles.podcastFeeds();
-      await writeFile(
-        filePath,
-        new TextEncoder().encode(JSON.stringify(get().customFeeds, null, 2)),
-      );
+      await writeJsonArray(filePath, get().customFeeds);
     } catch (err) {
       console.error("Failed to save custom podcast feeds:", err);
     }
@@ -58,6 +57,7 @@ export const usePodcastStore = create<PodcastStore>((set, get) => {
     feedCache: {},
     loading: false,
     error: null,
+    recovery: null,
 
     fetchFeed: async (url: string) => {
       const cached = get().feedCache[url];
@@ -97,13 +97,20 @@ export const usePodcastStore = create<PodcastStore>((set, get) => {
       try {
         await ensureDataDirs();
         const filePath = await dataFiles.podcastFeeds();
-        if (!(await exists(filePath))) return;
-        const raw = await readTextFile(filePath);
-        const feeds = safeParseJSON(raw, isValidPodcastPreset);
-        set({ customFeeds: feeds });
+        const result = await loadJsonArray(filePath, {
+          validator: isValidPodcastPreset,
+        });
+        set({
+          customFeeds: result.data,
+          recovery: result.recovered
+            ? { label: "播客源", path: filePath, backupPath: result.backupPath, invalidCount: result.invalidCount }
+            : null,
+        });
       } catch (err) {
         console.error("Failed to load custom podcast feeds:", err);
       }
     },
+
+    clearRecovery: () => set({ recovery: null }),
   };
 });

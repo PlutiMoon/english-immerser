@@ -6,7 +6,7 @@ interface FileListProps {
   currentFile: WritingFileInfo | null;
   loading: boolean;
   onSelect: (file: WritingFileInfo) => void;
-  onDelete: (file: WritingFileInfo) => void;
+  onDelete: (file: WritingFileInfo) => Promise<void> | void;
   onNew: () => void;
 }
 
@@ -20,9 +20,9 @@ export default function FileList({
 }: FileListProps) {
   const [deleteTarget, setDeleteTarget] = useState<WritingFileInfo | null>(null);
 
-  const handleDelete = (f: WritingFileInfo) => {
+  const handleDelete = async (f: WritingFileInfo) => {
     if (deleteTarget?.path === f.path) {
-      onDelete(f);
+      await onDelete(f);
       setDeleteTarget(null);
     } else {
       setDeleteTarget(f);

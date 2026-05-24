@@ -1,13 +1,15 @@
 import { useState } from "react";
+import { formatSeconds } from "@/utils/formatSeconds";
 import type { VocabularyWord } from "@/types";
 
 interface WordCardProps {
   word: VocabularyWord;
   onEdit: () => void;
   onDelete: () => void;
+  onTimestampClick?: () => void;
 }
 
-export default function WordCard({ word, onEdit, onDelete }: WordCardProps) {
+export default function WordCard({ word, onEdit, onDelete, onTimestampClick }: WordCardProps) {
   const [speaking, setSpeaking] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -97,6 +99,21 @@ export default function WordCard({ word, onEdit, onDelete }: WordCardProps) {
           <span className="bg-warm-50 text-warm-700 rounded px-1.5 py-0.5">
             {word.source}
           </span>
+        )}
+        {word.mediaTimestamp != null && (
+          onTimestampClick ? (
+            <button
+              onClick={onTimestampClick}
+              className="text-primary-500 hover:text-primary-600 hover:underline"
+              title={`跳转到媒体时间点 ${formatSeconds(word.mediaTimestamp)}`}
+            >
+              ▶ {formatSeconds(word.mediaTimestamp)}
+            </button>
+          ) : (
+            <span className="text-primary-500" title={`来源时间: ${formatSeconds(word.mediaTimestamp)}`}>
+              ▶ {formatSeconds(word.mediaTimestamp)}
+            </span>
+          )
         )}
         <span>{word.createdAt.slice(0, 10)}</span>
         <span>

@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { readTextFile, writeFile, exists } from "@tauri-apps/plugin-fs";
 import { dataFiles, ensureDataDirs } from "@/utils/dataPath";
-import { safeParseJSON, isValidDictationSession } from "@/utils/validators";
-import type { DictationStep, DictationResult } from "@/types";
+import { loadJsonArray, writeJsonArray } from "@/utils/jsonStorage";
+import { isValidDictationSession } from "@/utils/validators";
+import type { DictationStep, DictationResult, JsonRecoveryNotice } from "@/types";
 
 export interface DictationSession {
   id: string;
@@ -22,6 +22,7 @@ interface DictationStoreState {
   sessionActive: boolean;
   history: DictationSession[];
   loaded: boolean;
+  recovery: JsonRecoveryNotice | null;
 
   setStep: (step: DictationStep) => void;
   setSource: (source: { name: string; path: string } | null) => void;
@@ -32,6 +33,7 @@ interface DictationStoreState {
   resetSession: () => void;
   loadHistory: () => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
+  clearRecovery: () => void;
 }
 
 export const useDictationStore = create<DictationStoreState>((set, get) => ({
@@ -42,6 +44,7 @@ export const useDictationStore = create<DictationStoreState>((set, get) => ({
   sessionActive: false,
   history: [],
   loaded: false,
+  recovery: null,
 
   setStep: (step) => set({ step }),
   setSource: (source) => set({ source }),
@@ -78,16 +81,15 @@ export const useDictationStore = create<DictationStoreState>((set, get) => ({
     try {
       await ensureDataDirs();
       const filePath = await dataFiles.dictation();
-      let existing: DictationSession[] = [];
-      if (await exists(filePath)) {
-        const raw = await readTextFile(filePath);
-        existing = safeParseJSON(raw, isValidDictationSession);
-      }
+      const { data: existing } = await loadJsonArray(filePath, {
+        validator: isValidDictationSession,
+      });
       const updated = [session, ...existing];
-      await writeFile(filePath, new TextEncoder().encode(JSON.stringify(updated, null, 2)));
+      await writeJsonArray(filePath, updated);
       set((s) => ({ history: [session, ...s.history], sessionActive: false }));
     } catch (err) {
       console.error("Failed to save dictation session:", err);
+      throw err;
     }
   },
 
@@ -104,13 +106,19 @@ export const useDictationStore = create<DictationStoreState>((set, get) => ({
     try {
       await ensureDataDirs();
       const filePath = await dataFiles.dictation();
-      if (!(await exists(filePath))) {
-        set({ history: [], loaded: true });
-        return;
-      }
-      const raw = await readTextFile(filePath);
-      const history = safeParseJSON(raw, isValidDictationSession);
-      set({ history, loaded: true });
+      const result = await loadJsonArray(filePath, {
+        validator: isValidDictationSession,
+      });
+      const history = result.data.sort(
+        (a, b) => b.date.localeCompare(a.date),
+      );
+      set({
+        history,
+        loaded: true,
+        recovery: result.recovered
+          ? { label: "听写记录", path: filePath, backupPath: result.backupPath, invalidCount: result.invalidCount }
+          : null,
+      });
     } catch (err) {
       console.error("Failed to load dictation history:", err);
       set({ history: [], loaded: true });
@@ -118,13 +126,19 @@ export const useDictationStore = create<DictationStoreState>((set, get) => ({
   },
 
   deleteSession: async (id: string) => {
-    set((s) => ({ history: s.history.filter((h) => h.id !== id) }));
+    const previous = get().history;
+    const next = previous.filter((h) => h.id !== id);
+    set({ history: next });
     try {
       await ensureDataDirs();
       const filePath = await dataFiles.dictation();
-      await writeFile(filePath, new TextEncoder().encode(JSON.stringify(get().history, null, 2)));
+      await writeJsonArray(filePath, next);
     } catch (err) {
+      set({ history: previous });
       console.error("Failed to delete dictation session:", err);
+      throw err;
     }
   },
+
+  clearRecovery: () => set({ recovery: null }),
 }));
