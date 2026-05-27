@@ -169,6 +169,241 @@ pub fn open_folder(path: String) -> Result<(), String> {
     Ok(())
 }
 
+// ============================================================
+// YouTube support (requires yt-dlp in PATH)
+// ============================================================
+
+fn yt_dlp_path() -> Result<String, String> {
+    which::which("yt-dlp")
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|_| "yt-dlp 未安装。请运行 pip install yt-dlp 或 winget install yt-dlp 安装后重试。".to_string())
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct YouTubeInfo {
+    pub title: String,
+    pub duration: u64,
+    pub uploader: String,
+    pub audio_url: String,
+    pub subtitles: Vec<YouTubeSubtitle>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct YouTubeSubtitle {
+    pub lang: String,
+    pub label: String,
+}
+
+#[tauri::command]
+pub async fn fetch_youtube(url: String) -> Result<YouTubeInfo, String> {
+    let ytdlp = yt_dlp_path()?;
+
+    // Step 1: get metadata JSON
+    let output = std::process::Command::new(&ytdlp)
+        .args(["-j", "--no-playlist", "--flat-playlist", &url])
+        .output()
+        .map_err(|e| format!("无法启动 yt-dlp: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("yt-dlp 解析失败: {}", stderr.lines().last().unwrap_or("未知错误")));
+    }
+
+    let meta: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|e| format!("解析 yt-dlp 输出失败: {}", e))?;
+
+    let title = meta["title"].as_str().unwrap_or("未知标题").to_string();
+    let duration = meta["duration"].as_u64().unwrap_or(0);
+    let uploader = meta["uploader"].as_str()
+        .or_else(|| meta["channel"].as_str())
+        .unwrap_or("未知作者")
+        .to_string();
+
+    // Step 2: get audio stream URL (best audio-only format)
+    let audio_output = std::process::Command::new(&ytdlp)
+        .args(["-f", "bestaudio", "-g", "--no-playlist", &url])
+        .output()
+        .map_err(|e| format!("无法获取音频流: {}", e))?;
+
+    let audio_url = String::from_utf8_lossy(&audio_output.stdout)
+        .lines()
+        .last()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+
+    if audio_url.is_empty() {
+        return Err("未能获取音频流地址".to_string());
+    }
+
+    // Step 3: collect available subtitles
+    let mut subtitles: Vec<YouTubeSubtitle> = Vec::new();
+    if let Some(subs) = meta["subtitles"].as_object() {
+        for (lang, entries) in subs {
+            if let Some(arr) = entries.as_array() {
+                if !arr.is_empty() {
+                    let label = lang_label(lang);
+                    subtitles.push(YouTubeSubtitle { lang: lang.clone(), label });
+                }
+            }
+        }
+    }
+    // Also check automatic captions
+    if let Some(auto) = meta["automatic_captions"].as_object() {
+        for (lang, entries) in auto {
+            if let Some(arr) = entries.as_array() {
+                if !arr.is_empty() && !subtitles.iter().any(|s| s.lang == *lang) {
+                    let label = format!("{} (自动)", lang_label(lang));
+                    subtitles.push(YouTubeSubtitle { lang: lang.clone(), label });
+                }
+            }
+        }
+    }
+
+    Ok(YouTubeInfo { title, duration, uploader, audio_url, subtitles })
+}
+
+#[tauri::command]
+pub async fn fetch_youtube_subtitle(url: String, lang: String) -> Result<Vec<SubtitleLine>, String> {
+    let ytdlp = yt_dlp_path()?;
+
+    // Write subtitles to a temp file, then read and parse
+    let tmp_dir = std::env::temp_dir().join("english-immerser-yt");
+    std::fs::create_dir_all(&tmp_dir).map_err(|e| format!("无法创建临时目录: {}", e))?;
+
+    let output = std::process::Command::new(&ytdlp)
+        .args([
+            "--write-subs", "--write-auto-subs",
+            "--sub-lang", &lang,
+            "--sub-format", "vtt",
+            "--skip-download",
+            "-o", &format!("{}/%(id)s", tmp_dir.to_string_lossy()),
+            &url,
+        ])
+        .output()
+        .map_err(|e| format!("yt-dlp 字幕提取失败: {}", e))?;
+
+    if !output.status.success() {
+        return Err("字幕下载失败，该语言可能无可用字幕".to_string());
+    }
+
+    // Find the downloaded VTT file
+    let vtt_files: Vec<_> = std::fs::read_dir(&tmp_dir)
+        .map_err(|e| format!("读取临时目录失败: {}", e))?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().map_or(false, |ext| ext == "vtt"))
+        .collect();
+
+    if vtt_files.is_empty() {
+        return Err("未找到字幕文件".to_string());
+    }
+
+    let vtt_path = vtt_files[0].path();
+    let content = std::fs::read_to_string(&vtt_path)
+        .map_err(|e| format!("读取字幕文件失败: {}", e))?;
+
+    // Clean up
+    let _ = std::fs::remove_file(&vtt_path);
+
+    let lines = parse_vtt_content(&content);
+    if lines.is_empty() {
+        return Err("字幕内容为空".to_string());
+    }
+
+    Ok(lines)
+}
+
+fn lang_label(code: &str) -> String {
+    match code.split('-').next().unwrap_or(code) {
+        "en" => "English".into(),
+        "zh" => "中文".into(),
+        "ja" => "日本語".into(),
+        "ko" => "한국어".into(),
+        "fr" => "Français".into(),
+        "de" => "Deutsch".into(),
+        "es" => "Español".into(),
+        "pt" => "Português".into(),
+        "ru" => "Русский".into(),
+        "ar" => "العربية".into(),
+        other => other.to_uppercase(),
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct SubtitleLine {
+    pub start: f64,
+    pub end: f64,
+    pub text: String,
+}
+
+fn parse_vtt_content(content: &str) -> Vec<SubtitleLine> {
+    let mut lines: Vec<SubtitleLine> = Vec::new();
+    let mut in_cue = false;
+    let mut current_start: f64 = 0.0;
+    let mut current_end: f64 = 0.0;
+    let mut current_text = String::new();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            if in_cue && !current_text.is_empty() {
+                lines.push(SubtitleLine {
+                    start: current_start,
+                    end: current_end,
+                    text: current_text.trim().to_string(),
+                });
+                current_text.clear();
+            }
+            in_cue = false;
+            continue;
+        }
+        if line == "WEBVTT" || line.starts_with("NOTE") || line.starts_with("Kind:") || line.starts_with("Language:") {
+            continue;
+        }
+        // Timecode line: "00:00:01.000 --> 00:00:04.000"
+        if line.contains("-->") {
+            in_cue = true;
+            current_text.clear();
+            let parts: Vec<&str> = line.split("-->").collect();
+            if parts.len() == 2 {
+                current_start = parse_vtt_timestamp(parts[0].trim());
+                current_end = parse_vtt_timestamp(parts[1].trim());
+            }
+        } else if in_cue {
+            if !current_text.is_empty() { current_text.push('\n'); }
+            // Strip VTT tags like <c> <00:00:01.000>
+            let clean = line.replace(|c: char| c == '<' || c == '>', "");
+            let clean = clean.split('<').next().unwrap_or(&clean).trim().to_string();
+            if !clean.is_empty() {
+                current_text.push_str(&clean);
+            }
+        }
+    }
+    // Flush last cue
+    if in_cue && !current_text.is_empty() {
+        lines.push(SubtitleLine { start: current_start, end: current_end, text: current_text.trim().to_string() });
+    }
+    lines
+}
+
+fn parse_vtt_timestamp(s: &str) -> f64 {
+    // "00:00:01.000" or "00:01.000"
+    let s = s.trim();
+    let parts: Vec<&str> = s.split(':').collect();
+    if parts.len() == 3 {
+        let h: f64 = parts[0].parse().unwrap_or(0.0);
+        let m: f64 = parts[1].parse().unwrap_or(0.0);
+        let secs: f64 = parts[2].parse().unwrap_or(0.0);
+        h * 3600.0 + m * 60.0 + secs
+    } else if parts.len() == 2 {
+        let m: f64 = parts[0].parse().unwrap_or(0.0);
+        let secs: f64 = parts[1].parse().unwrap_or(0.0);
+        m * 60.0 + secs
+    } else {
+        s.parse().unwrap_or(0.0)
+    }
+}
+
 fn parse_rss_feed(content: &[u8]) -> Result<PodcastFeed, String> {
     let channel = rss::Channel::read_from(content)
         .map_err(|e| format!("Failed to parse RSS: {}", e))?;

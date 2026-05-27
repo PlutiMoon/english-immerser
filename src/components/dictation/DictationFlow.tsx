@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import type { DictationStep } from "@/types";
 import { formatSeconds } from "@/utils/formatSeconds";
+import { PauseIcon, PlayIcon } from "@/components/icons/AppIcons";
 
 const STEPS: { key: string; label: string }[] = [
   { key: "listen", label: "盲听" },
@@ -145,7 +146,7 @@ export default function DictationFlow({
           onClick={togglePlay}
           className="shrink-0 w-10 h-10 rounded-full bg-primary-500 text-white flex items-center justify-center hover:bg-primary-600 transition-colors"
         >
-          {playing ? "⏸" : "▶"}
+          {playing ? <PauseIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4 translate-x-px" />}
         </button>
         <button
           onClick={skipBack}

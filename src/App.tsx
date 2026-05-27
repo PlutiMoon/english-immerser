@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, Suspense, lazy } from "react";
+import type { ComponentType, LazyExoticComponent } from "react";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -6,16 +7,12 @@ import Sidebar from "./components/layout/Sidebar";
 import ErrorBoundary from "./components/shared/ErrorBoundary";
 import ToastContainer from "./components/shared/ToastContainer";
 import UpdateModal from "./components/shared/UpdateModal";
-import { loadAllData, saveAllData } from "./data";
-import type { AppData, ToastType, ToastItem } from "./types";
-import { DEFAULT_APP_DATA } from "./types";
+import type { ToastType, ToastItem } from "./types";
 
 // --- Scenes ---
-export type Scene = "hub" | "player" | "vocabulary" | "writing" | "recording" | "dictation";
+export type Scene = "hub" | "player" | "vocabulary" | "writing" | "recording" | "dictation" | "tools";
 
 export interface SceneProps {
-  data: AppData;
-  setData: (patch: Partial<AppData>) => void;
   toast: (message: string, type?: ToastType, duration?: number) => void;
   onSceneChange: (scene: Scene) => void;
 }
@@ -26,14 +23,16 @@ const VocabularyScene = lazy(() => import("./scenes/VocabularyScene"));
 const WritingScene = lazy(() => import("./scenes/WritingScene"));
 const RecordingScene = lazy(() => import("./scenes/RecordingScene"));
 const DictationScene = lazy(() => import("./scenes/DictationScene"));
+const ToolsScene = lazy(() => import("./scenes/ToolsScene"));
 
-const SCENE_COMPONENTS: Record<Scene, React.LazyExoticComponent<React.ComponentType<any>>> = {
+const SCENE_COMPONENTS: Record<Scene, LazyExoticComponent<ComponentType<SceneProps>>> = {
   hub: HubScene,
   player: PlayerScene,
   vocabulary: VocabularyScene,
   writing: WritingScene,
   recording: RecordingScene,
   dictation: DictationScene,
+  tools: ToolsScene,
 };
 
 function PageFallback() {
@@ -53,8 +52,6 @@ function PageFallback() {
 // --- App ---
 export default function App() {
   const [scene, setScene] = useState<Scene>("hub");
-  const [data, setDataState] = useState<AppData>(DEFAULT_APP_DATA);
-  const [loaded, setLoaded] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [updateInfo, setUpdateInfo] = useState<Update | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -68,20 +65,6 @@ export default function App() {
     }
   }, []);
 
-  // Load all data once on mount
-  useEffect(() => {
-    loadAllData().then(({ data, recoveries }) => {
-      setDataState(data);
-      setLoaded(true);
-      recoveries.forEach((recovery) => {
-        const detail = recovery.backupPath
-          ? `已备份到 ${recovery.backupPath}`
-          : `已跳过 ${recovery.invalidCount} 条异常记录`;
-        addToast(`${recovery.label}数据已自动恢复，${detail}`, "warning", 7000);
-      });
-    });
-  }, [addToast]);
-
   // Update check (delayed)
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -91,15 +74,6 @@ export default function App() {
       } catch { /* noop */ }
     }, 3000);
     return () => clearTimeout(timer);
-  }, []);
-
-  // Centralized setData with auto-save
-  const setData = useCallback((patch: Partial<AppData>) => {
-    setDataState(prev => {
-      const next = { ...prev, ...patch };
-      saveAllData(next).catch(console.error);
-      return next;
-    });
   }, []);
 
   // Update handlers
@@ -114,17 +88,6 @@ export default function App() {
       setDownloading(false);
     }
   }, [updateInfo]);
-
-  if (!loaded) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto mb-3 h-10 w-10 rounded-full border-4 border-primary-200 border-t-primary-500 animate-spin" />
-          <p className="text-sm text-gray-400">加载中...</p>
-        </div>
-      </div>
-    );
-  }
 
   const ActiveScene = SCENE_COMPONENTS[scene];
 
@@ -146,12 +109,7 @@ export default function App() {
           <div className="animate-fade-in">
             <ErrorBoundary>
               <Suspense fallback={<PageFallback />}>
-                <ActiveScene
-                  data={data}
-                  setData={setData}
-                  toast={addToast}
-                  onSceneChange={setScene}
-                />
+                <ActiveScene toast={addToast} onSceneChange={setScene} />
               </Suspense>
             </ErrorBoundary>
           </div>

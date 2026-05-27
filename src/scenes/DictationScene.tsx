@@ -5,13 +5,16 @@ import PageHeader from "@/components/shared/PageHeader";
 import DictationFlow from "@/components/dictation/DictationFlow";
 import SessionResult from "@/components/dictation/SessionResult";
 import HistoryList from "@/components/dictation/HistoryList";
+import { usePlayerStore } from "@/stores/playerStore";
 import { useDictationStore } from "@/stores/dictationStore";
 import { useVocabularyStore } from "@/stores/vocabularyStore";
 import { useWritingStore } from "@/stores/writingStore";
+import { formatJsonRecoveryNotice } from "@/utils/recoveryNotice";
 import type { DictationStep } from "@/types";
 
-export default function DictationScene({ data, toast, onSceneChange }: SceneProps) {
-  const { source, sessionActive, history, loaded, startSession, resetSession } = useDictationStore();
+export default function DictationScene({ toast, onSceneChange }: SceneProps) {
+  const playerSource = usePlayerStore((s) => s.source);
+  const { sessionActive, history, loaded, startSession, resetSession } = useDictationStore();
   const recovery = useDictationStore((s) => s.recovery);
   const clearRecovery = useDictationStore((s) => s.clearRecovery);
   const [step, setStep] = useState<DictationStep>("listen");
@@ -24,10 +27,7 @@ export default function DictationScene({ data, toast, onSceneChange }: SceneProp
 
   useEffect(() => {
     if (recovery) {
-      const detail = recovery.backupPath
-        ? `已备份到 ${recovery.backupPath}`
-        : `已跳过 ${recovery.invalidCount} 条异常记录`;
-      toast(`${recovery.label}数据已自动恢复，${detail}`, "warning", 7000);
+      toast(formatJsonRecoveryNotice(recovery), "warning", 7000);
       clearRecovery();
     }
   }, [recovery, clearRecovery, toast]);
@@ -52,12 +52,12 @@ export default function DictationScene({ data, toast, onSceneChange }: SceneProp
   };
 
   const handleUsePlayerSource = useCallback(() => {
-    if (data.player.source) {
-      startSession({ name: data.player.source.name, path: data.player.source.path });
+    if (playerSource) {
+      startSession({ name: playerSource.name, path: playerSource.path });
       setStep("listen"); setKeywords(""); setRetellText("");
       setShowResult(false);
     }
-  }, [data.player.source, startSession]);
+  }, [playerSource, startSession]);
 
   const handleFinish = async () => {
     const store = useDictationStore.getState();
@@ -91,32 +91,32 @@ export default function DictationScene({ data, toast, onSceneChange }: SceneProp
 
   const handleAddToVocabulary = () => {
     const store = useVocabularyStore.getState();
-    store.setPendingWord({ word: keywords, source: source?.name ?? "" });
+    store.setPendingWord({ word: keywords, source: playerSource?.name ?? "" });
     onSceneChange("vocabulary");
   };
 
   const handleSaveToWriting = () => {
     const store = useWritingStore.getState();
     store.setPendingContent({
-      title: `${source?.name ?? "听写"} 复述`,
+      title: `${playerSource?.name ?? "听写"} 复述`,
       content: retellText,
     });
     onSceneChange("writing");
   };
 
   const handleRepeatSource = () => {
-    if (source) {
-      startSession({ name: source.name, path: source.path });
+    if (playerSource) {
+      startSession({ name: playerSource.name, path: playerSource.path });
       setStep("listen"); setKeywords(""); setRetellText("");
       setShowResult(false);
     }
   };
 
-  if (showResult && source) {
+  if (showResult && playerSource) {
     return (
       <div className="space-y-6">
         <PageHeader title="听写与复述小游戏" subtitle="播放→输入关键词→再播放→用自己的话复述" />
-        <SessionResult sourceName={source.name} keywords={keywords} retellText={retellText}
+        <SessionResult sourceName={playerSource.name} keywords={keywords} retellText={retellText}
           onNewSession={handleNewSession}
           onAddToVocabulary={handleAddToVocabulary}
           onSaveToWriting={handleSaveToWriting}
@@ -129,11 +129,11 @@ export default function DictationScene({ data, toast, onSceneChange }: SceneProp
     );
   }
 
-  if (sessionActive && source) {
+  if (sessionActive && playerSource) {
     return (
       <div className="space-y-6">
-        <PageHeader title="听写与复述小游戏" subtitle={source.name} />
-        <DictationFlow step={step} source={source} keywords={keywords} retellText={retellText}
+        <PageHeader title="听写与复述小游戏" subtitle={playerSource.name} />
+        <DictationFlow step={step} source={playerSource} keywords={keywords} retellText={retellText}
           setStep={setStep} setKeywords={setKeywords} setRetellText={setRetellText}
           onFinish={handleFinish} />
       </div>
@@ -152,10 +152,10 @@ export default function DictationScene({ data, toast, onSceneChange }: SceneProp
             <p className="text-sm font-medium">选择本地音频文件</p>
             <p className="text-xs text-gray-400 mt-1">MP3 / MP4 / M4A / WAV / OGG</p>
           </button>
-          {data.player.source && (
+          {playerSource && (
             <button onClick={handleUsePlayerSource}
               className="rounded-lg border border-primary-200 bg-primary-50 px-6 py-3 text-sm text-primary-700 hover:bg-primary-100 transition-colors">
-              使用播放器中的音频：{data.player.source.name}
+              使用播放器中的音频：{playerSource.name}
             </button>
           )}
         </div>

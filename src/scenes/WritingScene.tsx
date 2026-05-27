@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { SceneProps } from "@/App";
 import PageHeader from "@/components/shared/PageHeader";
 import FileList from "@/components/writing/FileList";
 import WritingEditor from "@/components/writing/WritingEditor";
 import DiaryView from "@/components/writing/DiaryView";
 import { openFolder } from "@/utils/openFolder";
+import { diaryStreak } from "@/utils/writingStats";
 import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
+import { FolderIcon } from "@/components/icons/AppIcons";
 import type { WritingFileInfo } from "@/types";
 import { useWritingStore } from "@/stores/writingStore";
 
@@ -17,168 +19,143 @@ export default function WritingScene({ toast }: SceneProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [saved, setSaved] = useState(true);
-  const {
-    files,
-    loaded,
-    loadFiles,
-    createWritingFile,
-    readWritingFile,
-    saveWritingFile,
-    deleteWritingFile,
-  } = useWritingStore();
+  const { files, loaded, loadFiles, createWritingFile, readWritingFile, saveWritingFile, deleteWritingFile } = useWritingStore();
   const pendingContent = useWritingStore((s) => s.pendingContent);
+  const diaryDates = useWritingStore((s) => s.diaryDates);
+  const loadDiaryHistory = useWritingStore((s) => s.loadDiaryHistory);
   const clearPendingContent = useWritingStore((s) => s.clearPendingContent);
 
-  // Load writing files on mount
+  const writingStats = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      fileCount: files.length,
+      diaryCount: diaryDates.length,
+      diaryStreak: diaryStreak(diaryDates),
+      hasTodayDiary: diaryDates.includes(today),
+    };
+  }, [files.length, diaryDates]);
+
   useEffect(() => {
     (async () => {
-      try {
-        if (!loaded) {
-          await loadFiles();
-        }
-      } catch (err) {
-        console.error("Failed to initialize writing directories:", err);
-        toast("写作目录初始化失败", "error");
-      }
+      try { if (!loaded) await loadFiles(); loadDiaryHistory().catch(console.error); }
+      catch (err) { console.error("Failed to initialize writing directories:", err); toast("写作目录初始化失败", "error"); }
     })();
-  }, [loaded, loadFiles, toast]);
+  }, [loaded, loadFiles, loadDiaryHistory, toast]);
 
-  // Consume pending content from cross-module navigation
   useEffect(() => {
     if (!pendingContent || !loaded) return;
     (async () => {
       try {
         const fileInfo = await createWritingFile(pendingContent.title, pendingContent.content);
-        setCurrentFile(fileInfo);
-        setTitle(fileInfo.name);
-        setContent(pendingContent.content);
-        setSaved(true);
-        setTab("writing");
-        clearPendingContent();
+        setCurrentFile(fileInfo); setTitle(fileInfo.name); setContent(pendingContent.content); setSaved(true);
+        setTab("writing"); clearPendingContent();
         toast("已自动创建写作文件", "success");
-      } catch (err) {
-        console.error("Failed to create file from pending content:", err);
-        toast("自动创建写作文件失败", "error");
-        clearPendingContent();
-      }
+      } catch (err) { console.error("Failed to create file from pending content:", err); toast("自动创建写作文件失败", "error"); clearPendingContent(); }
     })();
   }, [pendingContent, loaded, clearPendingContent, createWritingFile, toast]);
 
   const selectFile = async (f: WritingFileInfo) => {
-    try {
-      const raw = await readWritingFile(f.path);
-      setCurrentFile(f); setTitle(f.name); setContent(raw); setSaved(true);
-    } catch (err) {
-      console.error("Failed to read file:", err);
-      toast("文章读取失败", "error");
-    }
+    try { const raw = await readWritingFile(f.path); setCurrentFile(f); setTitle(f.name); setContent(raw); setSaved(true); }
+    catch (err) { console.error("Failed to read file:", err); toast("文章读取失败", "error"); }
   };
 
   const handleDelete = async (f: WritingFileInfo) => {
     try {
       await deleteWritingFile(f.path);
-      if (currentFile?.path === f.path) {
-        setCurrentFile(null); setTitle(""); setContent("");
-      }
+      if (currentFile?.path === f.path) { setCurrentFile(null); setTitle(""); setContent(""); }
       toast("文章已删除", "success");
-    } catch (err) {
-      console.error("Failed to delete file:", err);
-      toast("文章删除失败", "error");
-    }
+    } catch (err) { console.error("Failed to delete file:", err); toast("文章删除失败", "error"); }
   };
 
   const handleSave = async () => {
     if (!title.trim()) return;
-    try {
-      const fileInfo = await saveWritingFile(title, content, currentFile?.path);
-      setCurrentFile(fileInfo);
-      setTitle(fileInfo.name);
-      setSaved(true);
-      toast("文章已保存", "success");
-    } catch (err) {
-      console.error("Failed to save file:", err);
-      toast("文章保存失败", "error");
-    }
+    try { const fileInfo = await saveWritingFile(title, content, currentFile?.path); setCurrentFile(fileInfo); setTitle(fileInfo.name); setSaved(true); toast("文章已保存", "success"); }
+    catch (err) { console.error("Failed to save file:", err); toast("文章保存失败", "error"); }
   };
 
   const switchTab = (newTab: Tab) => {
-    if (tab === "writing" && newTab !== "writing" && !saved && title.trim()) {
-      handleSave().catch(console.error);
-    }
+    if (tab === "writing" && newTab !== "writing" && !saved && title.trim()) handleSave().catch(console.error);
     setTab(newTab);
   };
 
-  // Auto-save on unmount
-  useEffect(() => {
-    return () => {
-      if (!saved && title.trim()) handleSave().catch(console.error);
-    };
-  }, [saved, title]);
+  useEffect(() => () => { if (!saved && title.trim()) handleSave().catch(console.error); }, [saved, title]);
+
+  // Inline stat pills
+  const statPills = tab === "writing"
+    ? [{ label: "文章", value: `${writingStats.fileCount}` }]
+    : [
+        { label: "日记", value: `${writingStats.diaryCount}` },
+        { label: "连续", value: writingStats.diaryStreak > 0 ? `${writingStats.diaryStreak}天` : "—" },
+        { label: "今日", value: writingStats.hasTodayDiary ? "✓" : "—" },
+      ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PageHeader title="自由写作与三句日记" subtitle="极简编辑器 + 每日三句话引导，保存为本地文件" />
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
-        <button onClick={() => switchTab("writing")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${tab === "writing" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-          自由写作
-        </button>
-        <button onClick={() => switchTab("diary")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${tab === "diary" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-          三句日记
-        </button>
+
+      {/* Tab bar + inline stats */}
+      <div className="flex items-center gap-4">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+          {(["writing", "diary"] as Tab[]).map(t => (
+            <button key={t} onClick={() => switchTab(t)}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${tab === t ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              {t === "writing" ? "自由写作" : "三句日记"}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 ml-auto">
+          {statPills.map(s => (
+            <span key={s.label} className="text-xs text-gray-400">
+              <span className="text-gray-500 font-medium">{s.label}</span>{" "}
+              <span className="text-gray-700">{s.value}</span>
+            </span>
+          ))}
+        </div>
       </div>
+
       {tab === "writing" ? (
-        <div className="grid grid-cols-12 gap-4">
+        <div className="grid grid-cols-12 gap-5">
           <div className="col-span-3">
-            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-4">
+            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-4 h-full">
               <FileList files={files} currentFile={currentFile} loading={!loaded}
-                onSelect={selectFile} onDelete={handleDelete} onNew={() => { setCurrentFile(null); setTitle(""); setContent(""); setSaved(true); }} />
+                onSelect={selectFile} onDelete={handleDelete}
+                onNew={() => { setCurrentFile(null); setTitle(""); setContent(""); setSaved(true); }} />
             </div>
           </div>
           <div className="col-span-9">
-            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
+            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6 h-full">
               <WritingEditor title={title} content={content} saved={saved} currentFile={currentFile}
                 onTitleChange={setTitle} onContentChange={setContent} onSave={handleSave} />
             </div>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-12 gap-4">
+        <div className="grid grid-cols-12 gap-5">
           <div className="col-span-8">
-            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6"><DiaryView toast={toast} /></div>
+            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
+              <DiaryView toast={toast} />
+            </div>
           </div>
           <div className="col-span-4">
-            <div className="rounded-xl bg-gradient-to-r from-warm-50 to-primary-50 border border-warm-100 p-4">
-              <h3 className="text-sm font-medium text-warm-700 mb-2">日记小贴士</h3>
-              <ul className="text-xs text-gray-500 space-y-1.5">
-                <li>· 每天三句话，不多不少刚刚好</li>
-                <li>· 用简单的英文写，先写再改</li>
-                <li>· 描述事实 + 感受 + 计划</li>
-                <li>· 回顾旧日记，看到自己的进步</li>
-                <li>· 昨天的日记无法修改，保持真实</li>
-              </ul>
-              <div className="mt-3 flex gap-2">
-                <button onClick={async () => {
-                  try {
-                    await ensureDataDirs();
-                    await openFolder(await dataPaths.diary());
-                  } catch (err) {
-                    console.error("Failed to open diary folder:", err);
-                    toast("打开日记目录失败", "error");
-                  }
-                }}
-                  className="text-xs text-primary-600 hover:text-primary-700 font-medium">打开日记目录 →</button>
-                <button onClick={async () => {
-                  try {
-                    await ensureDataDirs();
-                    await openFolder(await dataPaths.writing());
-                  } catch (err) {
-                    console.error("Failed to open writing folder:", err);
-                    toast("打开写作目录失败", "error");
-                  }
-                }}
-                  className="text-xs text-primary-600 hover:text-primary-700 font-medium">打开写作目录 →</button>
+            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-5 space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-700">写作提示</h3>
+                <ul className="mt-2 space-y-1.5 text-xs text-gray-500">
+                  <li>· 先写再改，不要边写边纠结语法</li>
+                  <li>· 坚持每天三句话比偶尔写长文更重要</li>
+                  <li>· 用简单词汇表达清晰的意思</li>
+                  <li>· 回顾旧日记，看到自己的进步</li>
+                </ul>
+              </div>
+              <div className="pt-3 border-t border-gray-50 space-y-2">
+                <button onClick={async () => { await ensureDataDirs(); await openFolder(await dataPaths.diary()); }}
+                  className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-primary-600 transition-colors">
+                  <FolderIcon className="h-3 w-3" />日记目录
+                </button>
+                <button onClick={async () => { await ensureDataDirs(); await openFolder(await dataPaths.writing()); }}
+                  className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-primary-600 transition-colors ml-4">
+                  <FolderIcon className="h-3 w-3" />写作目录
+                </button>
               </div>
             </div>
           </div>

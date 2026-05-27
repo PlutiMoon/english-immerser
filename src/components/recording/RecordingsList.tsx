@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { formatSeconds } from "@/utils/formatSeconds";
 import { allowMediaFile, resolveLocalMediaSrc } from "@/utils/mediaAsset";
 import type { RecordingFile, ToastType } from "@/types";
+import { PauseIcon, PlayIcon, TrashIcon } from "@/components/icons/AppIcons";
 
 interface RecordingsListProps {
   history: RecordingFile[];
@@ -108,7 +109,7 @@ export default function RecordingsList({
                 className="shrink-0 text-lg"
                 title={isPlaying ? "暂停" : "播放"}
               >
-                {isPlaying ? "⏸" : "▶"}
+          {isPlaying ? <PauseIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4 translate-x-px" />}
               </button>
               <div className="flex-1 min-w-0">
                 <p className="text-gray-700 truncate text-xs">{file.name}</p>
@@ -123,14 +124,15 @@ export default function RecordingsList({
                   e.stopPropagation();
                   handleDelete(file);
                 }}
-                className={`shrink-0 px-1.5 py-0.5 rounded text-xs transition-colors ${
+                className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors ${
                   isDeleting
                     ? "bg-red-100 text-red-600"
                     : "text-gray-400 hover:text-red-500 hover:bg-red-50"
                 }`}
                 title={isDeleting ? "再点一次确认删除" : "删除"}
               >
-                {isDeleting ? "确认删除" : "删"}
+                <TrashIcon className="h-3.5 w-3.5" />
+                {isDeleting ? "确认" : ""}
               </button>
             </div>
           );

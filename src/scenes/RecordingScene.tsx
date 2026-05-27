@@ -8,6 +8,7 @@ import PromptCard from "@/components/recording/PromptCard";
 import { useMediaRecorder } from "@/hooks/useMediaRecorder";
 import { openFolder } from "@/utils/openFolder";
 import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
+import { formatJsonRecoveryNotice } from "@/utils/recoveryNotice";
 import type { RecordingStatus, RecordingFile } from "@/types";
 import { useRecordingStore } from "@/stores/recordingStore";
 
@@ -34,10 +35,7 @@ export default function RecordingScene({ toast }: SceneProps) {
 
   useEffect(() => {
     if (recovery) {
-      const detail = recovery.backupPath
-        ? `已备份到 ${recovery.backupPath}`
-        : `已跳过 ${recovery.invalidCount} 条异常记录`;
-      toast(`${recovery.label}数据已自动恢复，${detail}`, "warning", 7000);
+      toast(formatJsonRecoveryNotice(recovery), "warning", 7000);
       clearRecovery();
     }
   }, [recovery, clearRecovery, toast]);

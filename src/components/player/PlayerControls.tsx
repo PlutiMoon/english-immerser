@@ -1,5 +1,14 @@
 import { useState } from "react";
 import { formatSeconds } from "@/utils/formatSeconds";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  PauseIcon,
+  PlayIcon,
+  SaveIcon,
+  VolumeIcon,
+  TrashIcon,
+} from "@/components/icons/AppIcons";
 import type { SavedLoop } from "@/types";
 
 interface PlayerControlsProps {
@@ -70,15 +79,17 @@ export default function PlayerControls({
         <button onClick={togglePlay}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500 text-white hover:bg-primary-600 transition-colors text-lg"
           title={isPlaying ? "暂停" : "播放"}>
-          {isPlaying ? "⏸" : "▶"}
+          {isPlaying ? <PauseIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4 translate-x-[1px]" />}
         </button>
         <button onClick={() => skip(-5)}
-          className="rounded-lg px-3 py-1.5 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors" title="倒退5秒 (←)">
-          -5s
+          className="rounded-lg px-3 py-1.5 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors inline-flex items-center gap-1" title="倒退5秒 (←)">
+          <ArrowLeftIcon className="h-3.5 w-3.5" />
+          5s
         </button>
         <button onClick={() => skip(5)}
-          className="rounded-lg px-3 py-1.5 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors" title="快进5秒 (→)">
-          +5s
+          className="rounded-lg px-3 py-1.5 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors inline-flex items-center gap-1" title="快进5秒 (→)">
+          <ArrowRightIcon className="h-3.5 w-3.5" />
+          5s
         </button>
         <button onClick={cycleSpeed}
           className="rounded-lg px-3 py-1.5 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors font-mono" title="切换播放速度">
@@ -91,9 +102,10 @@ export default function PlayerControls({
         </button>
         {abLoop && !showSaveInput && (
           <button onClick={() => setShowSaveInput(true)}
-            className="rounded-lg px-2 py-1.5 text-xs text-primary-600 hover:bg-primary-50 transition-colors"
+            className="rounded-lg px-2 py-1.5 text-xs text-primary-600 hover:bg-primary-50 transition-colors inline-flex items-center gap-1"
             title="保存当前AB片段">
-            💾 保存片段
+            <SaveIcon className="h-3.5 w-3.5" />
+            保存片段
           </button>
         )}
         {showSaveInput && (
@@ -106,12 +118,15 @@ export default function PlayerControls({
               className="w-28 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-primary-400"
               autoFocus
             />
-            <button onClick={handleSave} className="text-xs text-primary-600 hover:text-primary-700">保存</button>
+            <button onClick={handleSave} className="text-xs text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">
+              <SaveIcon className="h-3 w-3" />
+              保存
+            </button>
             <button onClick={() => { setShowSaveInput(false); setSaveLabel(""); }} className="text-xs text-gray-400 hover:text-gray-600">取消</button>
           </div>
         )}
         <div className="flex items-center gap-1 ml-auto">
-          <span className="text-xs text-gray-400">🔊</span>
+          <VolumeIcon className="h-3.5 w-3.5 text-gray-400" />
           <input type="range" min="0" max="1" step="0.05" value={volume}
             onChange={e => { const v = Number(e.target.value); if (media) media.volume = v; onVolumeChange(v); }}
             className="w-20 h-1 accent-primary-500" />
@@ -130,7 +145,9 @@ export default function PlayerControls({
                 {loop.label} ({formatSeconds(loop.start)}–{formatSeconds(loop.end)})
               </button>
               <button onClick={() => onDeleteLoop(i)}
-                className="text-gray-300 hover:text-red-500 ml-0.5" title="删除">✕</button>
+                className="text-gray-300 hover:text-red-500 ml-0.5" title="删除">
+                <TrashIcon className="h-3.5 w-3.5" />
+              </button>
             </span>
           ))}
         </div>

@@ -1,5 +1,143 @@
 # Development Log
 
+## 2026-05-24 - Icon System Polish
+
+### Summary
+
+This pass introduced a unified 24px line-icon set and replaced the last raw emoji / glyph-style action markers in the core UI with consistent SVG icons.
+
+### Changed
+
+- Added `src/components/icons/AppIcons.tsx` as the shared icon library.
+- Replaced remaining play/pause, delete, and streak symbols in the main scenes and lists.
+- Standardized toast icon sizing.
+
+### Validation
+
+Commands run successfully:
+
+```bash
+npm test
+npm run build
+cargo check
+```
+
+Current test count: 98 passing tests across 8 files.
+
+## 2026-05-24 - Release Notes and Packaging Cleanup
+
+### Summary
+
+This pass tightened the 0.3.0 packaging story by adding a dedicated release-notes file and refreshing the README backup guidance so the export/import flow, pre-import backup, and schema compatibility rules are visible in one place.
+
+### Changed
+
+- Added `RELEASE_NOTES_0.3.0.md`.
+- Updated `README.md` with backup notes and release-note linkage.
+- Updated `CLAUDE.md` and `PLAN.md` to match the current store-based architecture and backup packaging flow.
+
+### Validation
+
+Docs-only pass; no code validation rerun was needed.
+
+## 2026-05-24 - Backup Schema Version Policy
+
+### Summary
+
+This pass added an explicit manifest compatibility policy for backups. The app now rejects newer or older backup schema versions with a clear message instead of treating them as generic format errors.
+
+### Changed
+
+- Added schema-version support checks in `src/utils/backupCore.ts`.
+- Added tests for future and older backup schema versions.
+- Kept current backups on schema version `1`.
+
+### Validation
+
+Commands run successfully:
+
+```bash
+npm test
+npm run build
+cargo check
+```
+
+Current test count: 98 passing tests across 8 files.
+
+## 2026-05-24 - Player Store Extraction
+
+### Summary
+
+This pass moved the in-memory player state out of `AppData` and into a dedicated Zustand store. Player source, recent sources, saved positions, and loop bookmarks now live in `src/stores/playerStore.ts`, and scenes talk to the store directly.
+
+### Changed
+
+- Added `src/stores/playerStore.ts`.
+- Removed `AppData`, `DEFAULT_APP_DATA`, and `src/data.ts`.
+- Updated `App.tsx` to stop carrying player state through props.
+- Updated `PlayerScene`, `VocabularyScene`, and `DictationScene` to read and write player state from the store.
+
+### Validation
+
+Commands run successfully:
+
+```bash
+npm test
+npm run build
+cargo check
+```
+
+Current test count: 95 passing tests across 8 files.
+
+## 2026-05-24 - Recovery Notice Helper and Backup Round-Trip Tests
+
+### Summary
+
+This pass removed the repeated JSON recovery toast string building from the scenes and added a backup export/import round-trip test that exercises JSON, text, diary, and recording assets together.
+
+### Changed
+
+- Added `src/utils/recoveryNotice.ts` for shared recovery toast formatting.
+- Updated `App.tsx` and the JSON-backed scenes to use the shared helper.
+- Added `tests/backup.test.ts` to cover backup export/import consistency.
+
+### Validation
+
+Commands run successfully:
+
+```bash
+npm test
+npm run build
+cargo check
+```
+
+Current test count: 95 passing tests across 8 files.
+
+## 2026-05-24 - Backup Consistency and Release Cleanup
+
+### Summary
+
+This pass fixed the last two backup/release consistency bugs: backup manifest versioning now matches the current app release, and the recording export toggle now applies to both recording metadata and `.webm` audio so restores stay internally consistent. The old no-op `saveAllData` chain was removed, and the sidebar version label now matches the shipped release.
+
+### Changed
+
+- Updated backup manifest version to `0.3.0`.
+- Made recording backup inclusion apply to both `recordings.json` and `.webm` files.
+- Removed the dead `saveAllData` auto-save path from `App.tsx` and `data.ts`.
+- Updated the sidebar version label to `v0.3.0`.
+
+### Validation
+
+Commands run successfully:
+
+```bash
+npm test
+npm run build
+cargo check
+```
+
+Current test count: 94 passing tests across 7 files.
+
 ## 2026-05-24 - Polish Pass: Vocabulary Jump, Check-In Store, RSS Tests
 
 ### Summary

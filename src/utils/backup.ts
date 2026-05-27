@@ -17,7 +17,7 @@ import {
   type BackupPayload,
 } from "./backupCore";
 
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.4.0";
 
 interface CreateBackupOptions {
   includeRecordingFiles?: boolean;
@@ -37,7 +37,7 @@ export interface ImportBackupResult {
 export async function createBackup(options: CreateBackupOptions = {}): Promise<CreatedBackup> {
   await ensureDataDirs();
   const files = [
-    ...await collectJsonFiles(),
+    ...await collectJsonFiles(options.includeRecordingFiles === true),
     ...await collectTextFiles("writing", await dataPaths.writing()),
     ...await collectTextFiles("diary", await dataPaths.diary()),
     ...options.includeRecordingFiles
@@ -77,14 +77,16 @@ export async function importBackup(raw: string): Promise<ImportBackupResult> {
   };
 }
 
-async function collectJsonFiles(): Promise<BackupFileEntry[]> {
+async function collectJsonFiles(includeRecordingFiles: boolean): Promise<BackupFileEntry[]> {
   const paths = [
     { relativePath: "vocabulary.json", path: await dataFiles.vocabulary() },
     { relativePath: "checkin.json", path: await dataFiles.checkin() },
     { relativePath: "dictation.json", path: await dataFiles.dictation() },
     { relativePath: "podcast_feeds.json", path: await dataFiles.podcastFeeds() },
-    { relativePath: "recordings.json", path: await dataFiles.recordingHistory() },
   ];
+  if (includeRecordingFiles) {
+    paths.push({ relativePath: "recordings.json", path: await dataFiles.recordingHistory() });
+  }
 
   return Promise.all(
     paths.map(async ({ relativePath, path }) => ({
@@ -126,7 +128,7 @@ async function applyBackupPayload(payload: BackupPayload): Promise<void> {
   await clearManagedTextDir(await dataPaths.writing(), ".txt");
   await clearManagedTextDir(await dataPaths.diary(), ".txt");
 
-  if (payload.files.some((file) => file.kind === "recording")) {
+  if (payload.files.some((file) => file.kind === "recording" || file.path === "recordings.json")) {
     await clearManagedTextDir(await dataPaths.recordings(), ".webm");
   }
 

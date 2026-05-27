@@ -7,11 +7,13 @@ import PlayerControls from "@/components/player/PlayerControls";
 import SubtitlePanel from "@/components/player/SubtitlePanel";
 import { useMediaEngine } from "@/components/player/useMediaEngine";
 import type { MediaEngineState } from "@/components/player/useMediaEngine";
+import { HeadphonesIcon } from "@/components/icons/AppIcons";
 import { usePodcastStore } from "@/stores/podcastStore";
+import { usePlayerStore } from "@/stores/playerStore";
 import { openCacheDir } from "@/utils/openFolder";
+import { formatJsonRecoveryNotice } from "@/utils/recoveryNotice";
 import type { MediaSource, SubtitleLine, SavedLoop } from "@/types";
 
-const MAX_RECENT = 10;
 const POSITION_SAVE_INTERVAL = 5; // seconds
 const MIN_POSITION_SAVE = 5; // don't save positions before 5s
 
@@ -27,7 +29,7 @@ function MediaVisual({ source }: { source: MediaSource | null }) {
   if (isVideo) return null;
   return (
     <div className="flex flex-col items-center justify-center rounded-xl bg-gradient-to-b from-primary-50 to-warm-50 p-8 border border-primary-100">
-      <span className="text-6xl mb-3">🎧</span>
+      <HeadphonesIcon className="mb-3 h-14 w-14 text-primary-500" />
       <p className="text-lg font-medium text-gray-800">{source.name}</p>
       <p className="text-xs text-gray-400 mt-1 truncate max-w-full">{source.path}</p>
     </div>
@@ -45,9 +47,17 @@ function StatusBadge({ playState }: { playState: string }) {
   return <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium ${info.cls}`}>{info.text}</span>;
 }
 
-export default function PlayerScene({ data, setData, toast, onSceneChange }: SceneProps) {
-  const playerData = data.player;
-  const [source, setSourceState] = useState<MediaSource | null>(playerData.source);
+export default function PlayerScene({ toast, onSceneChange }: SceneProps) {
+  const source = usePlayerStore((s) => s.source);
+  const positions = usePlayerStore((s) => s.positions);
+  const recentSources = usePlayerStore((s) => s.recentSources);
+  const savedLoopsByPath = usePlayerStore((s) => s.savedLoops);
+  const setSource = usePlayerStore((s) => s.setSource);
+  const rememberSource = usePlayerStore((s) => s.rememberSource);
+  const restoreRecentSource = usePlayerStore((s) => s.restoreRecentSource);
+  const setPosition = usePlayerStore((s) => s.setPosition);
+  const saveLoop = usePlayerStore((s) => s.saveLoop);
+  const deleteLoop = usePlayerStore((s) => s.deleteLoop);
   const [subtitles, setSubtitles] = useState<SubtitleLine[]>([]);
 
   // Playback settings
@@ -57,7 +67,7 @@ export default function PlayerScene({ data, setData, toast, onSceneChange }: Sce
   const [subtitleOffset, setSubtitleOffset] = useState(0);
 
   // Initial position on source change
-  const initialPosition = source ? (playerData.positions[source.path] ?? 0) : 0;
+  const initialPosition = source ? (positions[source.path] ?? 0) : 0;
 
   // Engine state (high-frequency)
   const [engineState, setEngineState] = useState<MediaEngineState>({
@@ -75,32 +85,12 @@ export default function PlayerScene({ data, setData, toast, onSceneChange }: Sce
     onStateChange: handleEngineStateChange,
   });
 
-  // Wrap setSource to manage recent list + position save
-  const setSource = useCallback((next: MediaSource | null) => {
-    setSourceState(prev => {
-      if (prev && prev.path !== next?.path && engineState.currentTime > MIN_POSITION_SAVE) {
-        // Save position of previous source
-        const positions = { ...playerData.positions, [prev.path]: engineState.currentTime };
-        // Update recent list
-        const filtered = playerData.recentSources.filter(s => s.path !== prev.path);
-        const recentSources = [prev, ...filtered].slice(0, MAX_RECENT);
-        setData({ player: { ...playerData, positions, recentSources } });
-      }
-      return next;
-    });
-  }, [engineState.currentTime, playerData, setData]);
-
-  // Sync source + player state to AppData
-  useEffect(() => {
-    setData({ player: { ...playerData, source: source! } });
-  }, [source?.path]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Auto-restore last source on mount
   useEffect(() => {
-    if (!source && playerData.recentSources.length > 0) {
-      setSourceState(playerData.recentSources[0]);
+    if (!source && recentSources.length > 0) {
+      restoreRecentSource();
     }
-  }, []); // only on mount
+  }, [source, recentSources, restoreRecentSource]);
 
   // Periodic position save
   const lastSavedPosRef = useRef(-1);
@@ -109,16 +99,11 @@ export default function PlayerScene({ data, setData, toast, onSceneChange }: Sce
       const ct = engineState.currentTime;
       if (source && ct > MIN_POSITION_SAVE && Math.abs(ct - lastSavedPosRef.current) > 1) {
         lastSavedPosRef.current = ct;
-        setData({
-          player: {
-            ...playerData,
-            positions: { ...playerData.positions, [source.path]: ct },
-          },
-        });
+        setPosition(source.path, ct);
       }
     }, POSITION_SAVE_INTERVAL * 1000);
     return () => clearInterval(interval);
-  }, [source, playerData, setData, engineState.currentTime]);
+  }, [source, setPosition, engineState.currentTime]);
 
   // Podcast store
   const podcast = usePodcastStore();
@@ -127,10 +112,7 @@ export default function PlayerScene({ data, setData, toast, onSceneChange }: Sce
 
   useEffect(() => {
     if (podcastRecovery) {
-      const detail = podcastRecovery.backupPath
-        ? `已备份到 ${podcastRecovery.backupPath}`
-        : `已跳过 ${podcastRecovery.invalidCount} 条异常记录`;
-      toast(`${podcastRecovery.label}数据已自动恢复，${detail}`, "warning", 7000);
+      toast(formatJsonRecoveryNotice(podcastRecovery), "warning", 7000);
       clearPodcastRecovery();
     }
   }, [podcastRecovery, clearPodcastRecovery, toast]);
@@ -153,30 +135,28 @@ export default function PlayerScene({ data, setData, toast, onSceneChange }: Sce
   }, [mediaRef]);
 
   // Saved loops for current source
-  const savedLoops = source ? (playerData.savedLoops[source.path] ?? []) : [];
+  const savedLoops = source ? (savedLoopsByPath[source.path] ?? []) : [];
 
   const handleSaveLoop = useCallback((label: string) => {
     if (!abLoop || !source) return;
     const loop: SavedLoop = { start: abLoop.start, end: abLoop.end, label };
-    const updated = [...savedLoops, loop];
-    setData({
-      player: {
-        ...playerData,
-        savedLoops: { ...playerData.savedLoops, [source.path]: updated },
-      },
-    });
-  }, [abLoop, source, savedLoops, playerData, setData]);
+    saveLoop(source.path, loop);
+  }, [abLoop, source, saveLoop]);
 
   const handleDeleteLoop = useCallback((index: number) => {
     if (!source) return;
-    const updated = savedLoops.filter((_, i) => i !== index);
-    setData({
-      player: {
-        ...playerData,
-        savedLoops: { ...playerData.savedLoops, [source.path]: updated },
-      },
-    });
-  }, [source, savedLoops, playerData, setData]);
+    deleteLoop(source.path, index);
+  }, [source, deleteLoop]);
+
+  const handleSourceChange = useCallback((next: MediaSource | null) => {
+    if (source && source.path !== next?.path && engineState.currentTime > MIN_POSITION_SAVE) {
+      rememberSource(source, engineState.currentTime);
+    }
+    setSource(next);
+    setSubtitles([]);
+    setSubtitleOffset(0);
+    setABLoop(null);
+  }, [source, engineState.currentTime, rememberSource, setSource]);
 
   const isVideo = source && /\.(mp4|webm|mkv|avi|mov)$/i.test(source.path);
 
@@ -203,13 +183,19 @@ export default function PlayerScene({ data, setData, toast, onSceneChange }: Sce
                 onPlaybackRateChange={setPlaybackRate} onVolumeChange={setVolume}
                 onABLoopChange={setABLoop}
                 onSaveLoop={handleSaveLoop} onDeleteLoop={handleDeleteLoop} />
+              <SubtitlePanel mediaRef={mediaRef} subtitles={subtitles}
+                activeSubtitleIndex={engineState.activeSubtitleIndex}
+                subtitleOffset={subtitleOffset} onSubtitleOffsetChange={setSubtitleOffset}
+                onClearSubtitles={() => setSubtitles([])}
+                onSceneChange={onSceneChange}
+                sourceName={source.name} sourcePath={source.path} />
             </>
           )}
         </div>
         <div className="col-span-4 space-y-4">
-          <MediaSourceComponent source={source} onSourceChange={setSource}
+          <MediaSourceComponent source={source} onSourceChange={handleSourceChange}
             onSubtitlesChange={setSubtitles}
-            recentSources={playerData.recentSources}
+            recentSources={recentSources}
             presets={podcast.presets} customFeeds={podcast.customFeeds}
             feedCache={podcast.feedCache} loading={podcast.loading} error={podcast.error}
             onFetchFeed={podcast.fetchFeed} onAddCustomFeed={podcast.addCustomFeed}
@@ -223,13 +209,6 @@ export default function PlayerScene({ data, setData, toast, onSceneChange }: Sce
             className="text-xs text-gray-400 hover:text-primary-600 transition-colors">
             打开下载缓存目录 →
           </button>
-          {source && (
-            <SubtitlePanel mediaRef={mediaRef} subtitles={subtitles}
-              activeSubtitleIndex={engineState.activeSubtitleIndex}
-              subtitleOffset={subtitleOffset} onSubtitleOffsetChange={setSubtitleOffset}
-              onSceneChange={onSceneChange}
-              sourceName={source.name} sourcePath={source.path} />
-          )}
         </div>
       </div>
     </div>

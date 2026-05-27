@@ -1,12 +1,22 @@
 import type { Scene } from "@/App";
+import {
+  BookOpenIcon,
+  HeadphonesIcon,
+  HomeIcon,
+  MicIcon,
+  TargetIcon,
+  WrenchIcon,
+  PenToolIcon,
+} from "@/components/icons/AppIcons";
 
-const NAV_ITEMS: { scene: Scene; label: string; icon: string }[] = [
-  { scene: "hub", label: "首页", icon: "🏠" },
-  { scene: "player", label: "沉浸听力", icon: "🎧" },
-  { scene: "vocabulary", label: "习词本", icon: "📖" },
-  { scene: "writing", label: "自由写作", icon: "✍️" },
-  { scene: "recording", label: "录音棚", icon: "🎙️" },
-  { scene: "dictation", label: "听写复述", icon: "🎯" },
+const NAV_ITEMS: { scene: Scene; label: string; icon: (props: { className?: string }) => JSX.Element }[] = [
+  { scene: "hub", label: "首页", icon: (props) => <HomeIcon {...props} /> },
+  { scene: "player", label: "沉浸听力", icon: (props) => <HeadphonesIcon {...props} /> },
+  { scene: "vocabulary", label: "习词本", icon: (props) => <BookOpenIcon {...props} /> },
+  { scene: "writing", label: "自由写作", icon: (props) => <PenToolIcon {...props} /> },
+  { scene: "recording", label: "录音棚", icon: (props) => <MicIcon {...props} /> },
+  { scene: "dictation", label: "听写复述", icon: (props) => <TargetIcon {...props} /> },
+  { scene: "tools", label: "工具", icon: (props) => <WrenchIcon {...props} /> },
 ];
 
 interface SidebarProps {
@@ -31,13 +41,13 @@ export default function Sidebar({ scene, onSceneChange }: SidebarProps) {
                 : "text-gray-600 hover:bg-gray-100"
             }`}
           >
-            <span className="text-lg">{item.icon}</span>
+            {item.icon({ className: "h-4 w-4 shrink-0" })}
             {item.label}
           </button>
         ))}
       </nav>
       <div className="border-t border-gray-100 p-3 text-xs text-gray-400">
-        v0.2.0
+        v0.4.0
       </div>
     </aside>
   );

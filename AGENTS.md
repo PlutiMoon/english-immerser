@@ -11,9 +11,10 @@
 | 桌面框架 | Tauri 2.x (Rust + React) |
 | 前端框架 | React 18+ + TypeScript |
 | 样式方案 | Tailwind CSS |
-| 状态管理 | Zustand |
-| 路由 | React Router v6 |
-| 数据存储 | 本地 JSON 文件（通过 Tauri FS API 读写用户文档目录） |
+| 状态管理 | Zustand stores（按模块独立，共 7 个 store） |
+| 场景切换 | scene 状态机（无 router） |
+| 数据存储 | 本地 JSON + 文本文件（通过 Tauri FS API 读写用户文档目录） |
+| 自动更新 | Tauri Updater + GitHub Releases |
 
 ## 核心功能模块
 
@@ -28,19 +29,27 @@
 - 所有用户数据存储在系统文档目录下的 `English Immerser/` 文件夹
 - 目录结构：
   - `vocabulary.json` — 生词本
-  - `diary/YYYY-MM-DD.txt` — 每日日记
   - `checkin.json` — 打卡记录
+  - `dictation.json` — 听写记录
+  - `podcast_feeds.json` — 自定义播客源
+  - `recordings.json` — 录音元数据
+  - `diary/YYYY-MM-DD.txt` — 每日日记
   - `writing/` — 自由写作文件
-- 使用 Tauri `@tauri-apps/plugin-fs` 读写文件
+  - `recordings/` — 录音文件（.webm）
+- JSON 文件读写通过 `src/utils/jsonStorage.ts`（含备份、损坏恢复、无效记录过滤）
+- 组件/场景不直接 import `@tauri-apps/plugin-fs`；文件操作封装在 store 中
 
 ## 开发规范
 
-- 组件按功能模块划分，每个模块一个文件夹
-- App.tsx 集中管理全局数据，通过 `data` + `setData` props 下发各场景
+- 组件按功能模块划分（`src/components/<module>/`），每个模块一个文件夹
+- App.tsx 仅负责场景切换、toast 和更新提示；各模块状态由对应 Zustand store 独立管理
+- 7 个 store（`src/stores/`）：player / vocabulary / recording / writing / dictation / checkin / podcast
+- 场景组件（`src/scenes/`）直接读写所属 store，不通过 props 传递数据
 - TypeScript 严格模式，所有类型在 `src/types/` 下定义
 - Tailwind 类名按功能分组（布局 → 颜色 → 间距 → 排版）
 - 组件文件名使用 PascalCase，工具函数使用 camelCase
 - 先搭骨架再填内容：每次新增模块时先做布局占位，再逐步完善交互
+- 备份导出/导入保持单文件 JSON 形式；新增 schema 时先补兼容策略和测试
 
 ## 环境要求
 

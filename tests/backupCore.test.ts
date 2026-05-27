@@ -5,6 +5,7 @@ import {
   backupFilename,
   createBackupManifest,
   isAllowedBackupPath,
+  isSupportedBackupSchemaVersion,
   parseBackupPayload,
   preImportBackupFilename,
 } from "../src/utils/backupCore";
@@ -63,6 +64,12 @@ describe("backupCore payload parsing", () => {
 });
 
 describe("backupCore manifest", () => {
+  it("accepts only supported schema versions", () => {
+    expect(isSupportedBackupSchemaVersion(BACKUP_SCHEMA_VERSION)).toBe(true);
+    expect(isSupportedBackupSchemaVersion(BACKUP_SCHEMA_VERSION + 1)).toBe(false);
+    expect(isSupportedBackupSchemaVersion(BACKUP_SCHEMA_VERSION - 1)).toBe(false);
+  });
+
   it("counts included file kinds", () => {
     const manifest = createBackupManifest(
       [
@@ -81,5 +88,39 @@ describe("backupCore manifest", () => {
       diaryFiles: 1,
       recordingFiles: 1,
     });
+  });
+
+  it("rejects future schema versions with a clear upgrade hint", () => {
+    const raw = JSON.stringify({
+      manifest: {
+        app: BACKUP_APP_NAME,
+        schemaVersion: BACKUP_SCHEMA_VERSION + 1,
+        appVersion: "0.4.0",
+        exportedAt: "2026-05-24T08:30:00.000Z",
+        includes: { jsonFiles: 1, writingFiles: 0, diaryFiles: 0, recordingFiles: 0 },
+      },
+      files: [
+        { path: "checkin.json", kind: "json", encoding: "utf-8", content: "[]" },
+      ],
+    });
+
+    expect(() => parseBackupPayload(raw)).toThrow("备份文件版本过新");
+  });
+
+  it("rejects older schema versions with a clear compatibility hint", () => {
+    const raw = JSON.stringify({
+      manifest: {
+        app: BACKUP_APP_NAME,
+        schemaVersion: BACKUP_SCHEMA_VERSION - 1,
+        appVersion: "0.1.0",
+        exportedAt: "2026-05-24T08:30:00.000Z",
+        includes: { jsonFiles: 1, writingFiles: 0, diaryFiles: 0, recordingFiles: 0 },
+      },
+      files: [
+        { path: "checkin.json", kind: "json", encoding: "utf-8", content: "[]" },
+      ],
+    });
+
+    expect(() => parseBackupPayload(raw)).toThrow("备份文件版本过旧");
   });
 });

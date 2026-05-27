@@ -1,5 +1,11 @@
 import { useState } from "react";
 import { formatSeconds } from "@/utils/formatSeconds";
+import {
+  ArrowRightIcon,
+  EditIcon,
+  VolumeIcon,
+  TrashIcon,
+} from "@/components/icons/AppIcons";
 import type { VocabularyWord } from "@/types";
 
 interface WordCardProps {
@@ -57,7 +63,7 @@ export default function WordCard({ word, onEdit, onDelete, onTimestampClick }: W
               }`}
               title="发音"
             >
-              {speaking ? "🔊" : "🔈"}
+              <VolumeIcon className="h-4 w-4" />
             </button>
           )}
           <button
@@ -65,7 +71,7 @@ export default function WordCard({ word, onEdit, onDelete, onTimestampClick }: W
             className="rounded p-1 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50"
             title="编辑"
           >
-            ✎
+            <EditIcon className="h-4 w-4" />
           </button>
           <button
             onClick={handleDelete}
@@ -76,7 +82,7 @@ export default function WordCard({ word, onEdit, onDelete, onTimestampClick }: W
             }`}
             title={confirmDelete ? "再点一次确认删除" : "删除"}
           >
-            {confirmDelete ? "✕" : "✕"}
+            <TrashIcon className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -107,11 +113,17 @@ export default function WordCard({ word, onEdit, onDelete, onTimestampClick }: W
               className="text-primary-500 hover:text-primary-600 hover:underline"
               title={`跳转到媒体时间点 ${formatSeconds(word.mediaTimestamp)}`}
             >
-              ▶ {formatSeconds(word.mediaTimestamp)}
+              <span className="inline-flex items-center gap-1">
+                <ArrowRightIcon className="h-3.5 w-3.5" />
+                {formatSeconds(word.mediaTimestamp)}
+              </span>
             </button>
           ) : (
             <span className="text-primary-500" title={`来源时间: ${formatSeconds(word.mediaTimestamp)}`}>
-              ▶ {formatSeconds(word.mediaTimestamp)}
+              <span className="inline-flex items-center gap-1">
+                <ArrowRightIcon className="h-3.5 w-3.5" />
+                {formatSeconds(word.mediaTimestamp)}
+              </span>
             </span>
           )
         )}

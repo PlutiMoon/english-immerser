@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeStreak, todayRecord } from "../src/utils/checkin";
+import { computeStreak, todayRecord, weeklyStats, moduleDistribution } from "../src/utils/checkin";
 import type { CheckInRecord } from "../src/types";
 
 function rec(date: string): CheckInRecord {
@@ -72,6 +72,90 @@ describe("todayRecord", () => {
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = dateMinusDays(today, 1);
     expect(todayRecord([rec(yesterday)])).toBeNull();
+  });
+});
+
+describe("weeklyStats", () => {
+  it("returns N days all zero for empty records", () => {
+    const stats = weeklyStats([], 7);
+    expect(stats).toHaveLength(7);
+    expect(stats.every((s) => s.minutes === 0)).toBe(true);
+  });
+
+  it("returns oldest-first order", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = dateMinusDays(today, 1);
+    const records: CheckInRecord[] = [
+      { date: yesterday, durationMinutes: 30, modules: ["player"] },
+    ];
+    const stats = weeklyStats(records, 7);
+    expect(stats).toHaveLength(7);
+    // first entry is oldest (7 days ago), last is today
+    expect(stats[stats.length - 1].date).toBe(today);
+    // yesterday should have 30 min
+    const y = stats.find((s) => s.date === yesterday);
+    expect(y?.minutes).toBe(30);
+  });
+
+  it("picks the correct duration for matching dates", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const records: CheckInRecord[] = [
+      { date: today, durationMinutes: 45, modules: ["vocabulary"] },
+    ];
+    const stats = weeklyStats(records, 1);
+    expect(stats).toHaveLength(1);
+    expect(stats[0].date).toBe(today);
+    expect(stats[0].minutes).toBe(45);
+  });
+
+  it("supports 30-day range", () => {
+    const stats = weeklyStats([], 30);
+    expect(stats).toHaveLength(30);
+  });
+});
+
+describe("moduleDistribution", () => {
+  it("returns all zeros for empty records", () => {
+    const dist = moduleDistribution([]);
+    expect(dist).toHaveLength(5);
+    expect(dist.every((m) => m.count === 0)).toBe(true);
+  });
+
+  it("counts module usage across records", () => {
+    const records: CheckInRecord[] = [
+      { date: "2026-05-20", durationMinutes: 30, modules: ["player", "vocabulary"] },
+      { date: "2026-05-21", durationMinutes: 60, modules: ["player", "writing"] },
+      { date: "2026-05-22", durationMinutes: 45, modules: ["player"] },
+    ];
+    const dist = moduleDistribution(records);
+    const player = dist.find((m) => m.module === "player")!;
+    const vocab = dist.find((m) => m.module === "vocabulary")!;
+    const writing = dist.find((m) => m.module === "writing")!;
+    expect(player.count).toBe(3);
+    expect(vocab.count).toBe(1);
+    expect(writing.count).toBe(1);
+  });
+
+  it("sorts descending by count", () => {
+    const records: CheckInRecord[] = [
+      { date: "2026-05-20", durationMinutes: 30, modules: ["writing"] },
+      { date: "2026-05-21", durationMinutes: 30, modules: ["player", "player"] }, // dedup by record, not by array
+      { date: "2026-05-22", durationMinutes: 30, modules: ["player", "vocabulary", "dictation"] },
+    ];
+    const dist = moduleDistribution(records);
+    for (let i = 1; i < dist.length; i++) {
+      expect(dist[i - 1].count).toBeGreaterThanOrEqual(dist[i].count);
+    }
+  });
+
+  it("includes label for every module", () => {
+    const dist = moduleDistribution([]);
+    const labels = dist.map((m) => m.label);
+    expect(labels).toContain("听力");
+    expect(labels).toContain("习词");
+    expect(labels).toContain("写作");
+    expect(labels).toContain("录音");
+    expect(labels).toContain("听写");
   });
 });
 

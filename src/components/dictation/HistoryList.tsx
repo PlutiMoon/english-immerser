@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { DictationSession } from "@/types";
+import { TrashIcon } from "@/components/icons/AppIcons";
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -74,14 +75,15 @@ export default function HistoryList({ history, loaded, onDelete }: HistoryListPr
                     e.stopPropagation();
                     handleDelete(session).catch(console.error);
                   }}
-                  className={`shrink-0 px-1.5 py-0.5 rounded text-xs transition-colors ${
+                  className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors ${
                     isDeleting
                       ? "bg-red-100 text-red-600"
                       : "text-gray-400 hover:text-red-500 hover:bg-red-50"
                   }`}
                   title={isDeleting ? "再点一次确认删除" : "删除"}
                 >
-                  {isDeleting ? "确认删除" : "删"}
+                  <TrashIcon className="h-3.5 w-3.5" />
+                  {isDeleting ? "确认" : ""}
                 </button>
               </div>
 

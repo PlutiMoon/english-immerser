@@ -1,12 +1,20 @@
 import { useState, useEffect } from "react";
 import type { ModuleType } from "@/types";
+import {
+  BookOpenIcon,
+  CheckIcon,
+  HeadphonesIcon,
+  MicIcon,
+  PenToolIcon,
+  TargetIcon,
+} from "@/components/icons/AppIcons";
 
 const MODULES: { key: ModuleType; label: string; icon: string }[] = [
-  { key: "player", label: "沉浸听力", icon: "🎧" },
-  { key: "vocabulary", label: "习词本", icon: "📖" },
-  { key: "writing", label: "自由写作", icon: "✍️" },
-  { key: "recording", label: "录音棚", icon: "🎙️" },
-  { key: "dictation", label: "听写复述", icon: "🎯" },
+  { key: "player", label: "沉浸听力", icon: "player" },
+  { key: "vocabulary", label: "习词本", icon: "vocabulary" },
+  { key: "writing", label: "自由写作", icon: "writing" },
+  { key: "recording", label: "录音棚", icon: "recording" },
+  { key: "dictation", label: "听写复述", icon: "dictation" },
 ];
 
 const DURATION_PRESETS = [30, 45, 60, 90, 120];
@@ -101,7 +109,14 @@ export default function CheckInModal({ onCheckIn, onCancel }: Props) {
                       : "bg-gray-50 text-gray-500 border border-gray-200 hover:border-gray-300"
                   }`}
                 >
-                  {m.icon} {m.label}
+                  <span className="inline-flex items-center gap-1.5">
+                    {m.icon === "player" && <HeadphonesIcon className="h-3.5 w-3.5" />}
+                    {m.icon === "vocabulary" && <BookOpenIcon className="h-3.5 w-3.5" />}
+                    {m.icon === "writing" && <PenToolIcon className="h-3.5 w-3.5" />}
+                    {m.icon === "recording" && <MicIcon className="h-3.5 w-3.5" />}
+                    {m.icon === "dictation" && <TargetIcon className="h-3.5 w-3.5" />}
+                    {m.label}
+                  </span>
                 </button>
               );
             })}
@@ -127,7 +142,10 @@ export default function CheckInModal({ onCheckIn, onCancel }: Props) {
             disabled={selected.size === 0}
             className="flex-1 rounded-lg bg-primary-500 py-2.5 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-40 transition-colors"
           >
-            打卡 ✓
+            <span className="inline-flex items-center gap-1 justify-center">
+              <CheckIcon className="h-4 w-4" />
+              打卡
+            </span>
           </button>
           <button
             onClick={onCancel}

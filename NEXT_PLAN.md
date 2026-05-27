@@ -6,7 +6,7 @@ Continue improving English Immerser as a stable local-first desktop learning too
 
 ## Status: 2026-05-24
 
-Phases 1-9 done. 94 tests (vitest). No component/scene imports `@tauri-apps/plugin-fs` directly.
+Phases 1-10 done. 98 tests (vitest). No component/scene imports `@tauri-apps/plugin-fs` directly.
 
 ---
 
@@ -46,6 +46,26 @@ Status: Done
 
 ---
 
+## Phase 10 - Optimization & Upgrade
+
+Status: Done
+
+- Split the backup UI into a compact settings/tools scene
+- Add backup round-trip tests for export/import consistency
+- Add a shared recovery-toast helper for stores that load local JSON
+- Move `player` state into its own store
+- Add a manifest migration policy for future backup schema versions
+- Tighten release packaging and notes around backups
+- Add a unified SVG icon set and replace raw UI symbols
+
+---
+
 ## Start Here
 
-[ ] Optional: split backup UI into a dedicated settings/tools scene
+[x] Split the backup UI into a dedicated settings/tools scene
+[x] Add backup round-trip tests
+[x] Add a shared recovery-toast helper
+[x] Move `player` state into its own store
+[x] Add a manifest migration policy for future backup schema versions
+[x] Tighten release packaging and notes around backups
+[x] Add a unified SVG icon set and replace raw UI symbols

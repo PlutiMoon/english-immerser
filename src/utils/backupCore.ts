@@ -1,4 +1,6 @@
 export const BACKUP_SCHEMA_VERSION = 1;
+export const BACKUP_MIN_SUPPORTED_SCHEMA_VERSION = 1;
+export const BACKUP_MAX_SUPPORTED_SCHEMA_VERSION = 1;
 export const BACKUP_APP_NAME = "English Immerser";
 
 export type BackupFileKind = "json" | "writing" | "diary" | "recording";
@@ -13,7 +15,7 @@ export interface BackupFileEntry {
 
 export interface BackupManifest {
   app: typeof BACKUP_APP_NAME;
-  schemaVersion: typeof BACKUP_SCHEMA_VERSION;
+  schemaVersion: number;
   appVersion: string;
   exportedAt: string;
   includes: {
@@ -64,19 +66,101 @@ export function parseBackupPayload(raw: string): BackupPayload {
     throw new Error("备份文件不是有效的 JSON");
   }
 
-  if (!isBackupPayload(parsed)) {
-    throw new Error("备份文件格式不正确");
+  const validation = validateBackupPayload(parsed);
+  if (!validation.ok) {
+    throw new Error(validation.message);
   }
 
-  return parsed;
+  return validation.payload;
 }
 
 export function isBackupPayload(value: unknown): value is BackupPayload {
-  if (!value || typeof value !== "object") return false;
-  const payload = value as BackupPayload;
-  if (!isBackupManifest(payload.manifest)) return false;
-  if (!Array.isArray(payload.files)) return false;
-  return payload.files.every(isBackupFileEntry);
+  return validateBackupPayload(value).ok;
+}
+
+export function isSupportedBackupSchemaVersion(schemaVersion: number): boolean {
+  return (
+    Number.isInteger(schemaVersion) &&
+    schemaVersion >= BACKUP_MIN_SUPPORTED_SCHEMA_VERSION &&
+    schemaVersion <= BACKUP_MAX_SUPPORTED_SCHEMA_VERSION
+  );
+}
+
+function validateBackupPayload(
+  value: unknown,
+): { ok: true; payload: BackupPayload } | { ok: false; message: string } {
+  if (!value || typeof value !== "object") {
+    return { ok: false, message: "备份文件格式不正确" };
+  }
+
+  const payload = value as Partial<BackupPayload>;
+  const manifestResult = validateBackupManifest(payload.manifest);
+  if (!manifestResult.ok) {
+    return manifestResult;
+  }
+
+  if (!Array.isArray(payload.files)) {
+    return { ok: false, message: "备份文件格式不正确" };
+  }
+
+  if (!payload.files.every(isBackupFileEntry)) {
+    return { ok: false, message: "备份文件格式不正确" };
+  }
+
+  return {
+    ok: true,
+    payload: {
+      manifest: manifestResult.manifest,
+      files: payload.files,
+    },
+  };
+}
+
+function validateBackupManifest(
+  value: unknown,
+): { ok: true; manifest: BackupManifest } | { ok: false; message: string } {
+  if (!value || typeof value !== "object") {
+    return { ok: false, message: "备份文件格式不正确" };
+  }
+
+  const manifest = value as Partial<BackupManifest> & { schemaVersion?: unknown };
+  if (
+    manifest.app !== BACKUP_APP_NAME ||
+    typeof manifest.schemaVersion !== "number" ||
+    !Number.isInteger(manifest.schemaVersion) ||
+    typeof manifest.appVersion !== "string" ||
+    typeof manifest.exportedAt !== "string" ||
+    !manifest.includes ||
+    typeof manifest.includes.jsonFiles !== "number" ||
+    typeof manifest.includes.writingFiles !== "number" ||
+    typeof manifest.includes.diaryFiles !== "number" ||
+    typeof manifest.includes.recordingFiles !== "number"
+  ) {
+    return { ok: false, message: "备份文件格式不正确" };
+  }
+
+  if (!isSupportedBackupSchemaVersion(manifest.schemaVersion)) {
+    return {
+      ok: false,
+      message: schemaVersionErrorMessage(manifest.schemaVersion),
+    };
+  }
+
+  return {
+    ok: true,
+    manifest: {
+      app: BACKUP_APP_NAME,
+      schemaVersion: manifest.schemaVersion,
+      appVersion: manifest.appVersion,
+      exportedAt: manifest.exportedAt,
+      includes: {
+        jsonFiles: manifest.includes.jsonFiles,
+        writingFiles: manifest.includes.writingFiles,
+        diaryFiles: manifest.includes.diaryFiles,
+        recordingFiles: manifest.includes.recordingFiles,
+      },
+    },
+  };
 }
 
 export function isBackupFileEntry(value: unknown): value is BackupFileEntry {
@@ -112,22 +196,6 @@ export function preImportBackupFilename(exportedAt = new Date().toISOString()): 
   return `pre-import-backup-${timestampForFilename(exportedAt)}.json`;
 }
 
-function isBackupManifest(value: unknown): value is BackupManifest {
-  if (!value || typeof value !== "object") return false;
-  const manifest = value as BackupManifest;
-  return (
-    manifest.app === BACKUP_APP_NAME &&
-    manifest.schemaVersion === BACKUP_SCHEMA_VERSION &&
-    typeof manifest.appVersion === "string" &&
-    typeof manifest.exportedAt === "string" &&
-    !!manifest.includes &&
-    typeof manifest.includes.jsonFiles === "number" &&
-    typeof manifest.includes.writingFiles === "number" &&
-    typeof manifest.includes.diaryFiles === "number" &&
-    typeof manifest.includes.recordingFiles === "number"
-  );
-}
-
 function isBackupKind(kind: unknown): kind is BackupFileKind {
   return kind === "json" || kind === "writing" || kind === "diary" || kind === "recording";
 }
@@ -138,6 +206,14 @@ function isBackupEncoding(encoding: unknown): encoding is BackupEncoding {
 
 function encodingMatchesKind(kind: BackupFileKind, encoding: BackupEncoding): boolean {
   return kind === "recording" ? encoding === "base64" : encoding === "utf-8";
+}
+
+function schemaVersionErrorMessage(schemaVersion: number): string {
+  if (schemaVersion > BACKUP_MAX_SUPPORTED_SCHEMA_VERSION) {
+    return `备份文件版本过新，请先更新应用后再导入（备份版本 ${schemaVersion}，当前支持 ${BACKUP_MAX_SUPPORTED_SCHEMA_VERSION}）`;
+  }
+
+  return `备份文件版本过旧，当前版本无法导入（备份版本 ${schemaVersion}，当前支持 ${BACKUP_MIN_SUPPORTED_SCHEMA_VERSION}）`;
 }
 
 function timestampForFilename(value: string): string {

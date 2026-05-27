@@ -1,17 +1,16 @@
 import type { ToastItem } from "@/types";
+import {
+  AlertTriangleIcon,
+  CheckIcon,
+  InfoIcon,
+  XIcon,
+} from "@/components/icons/AppIcons";
 
 const TOAST_STYLES = {
   success: "bg-green-50 border-green-200 text-green-800",
   error: "bg-red-50 border-red-200 text-red-800",
   warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
   info: "bg-blue-50 border-blue-200 text-blue-800",
-};
-
-const TOAST_ICONS: Record<string, string> = {
-  success: "✓",
-  error: "✕",
-  warning: "⚠",
-  info: "ℹ",
 };
 
 interface Props {
@@ -31,13 +30,16 @@ export default function ToastContainer({ toasts, onRemove }: Props) {
             TOAST_STYLES[toast.type]
           }`}
         >
-          <span className="text-lg">{TOAST_ICONS[toast.type]}</span>
+          {toast.type === "success" && <CheckIcon className="h-4 w-4 shrink-0" />}
+          {toast.type === "error" && <XIcon className="h-4 w-4 shrink-0" />}
+          {toast.type === "warning" && <AlertTriangleIcon className="h-4 w-4 shrink-0" />}
+          {toast.type === "info" && <InfoIcon className="h-4 w-4" />}
           <p className="flex-1 text-sm font-medium">{toast.message}</p>
           <button
             onClick={() => onRemove(toast.id)}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
-            ✕
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
       ))}

@@ -27,7 +27,9 @@ pub fn run() {
             commands::download_audio,
             commands::allow_media_file,
             commands::open_folder,
-            commands::open_cache_dir
+            commands::open_cache_dir,
+            commands::fetch_youtube,
+            commands::fetch_youtube_subtitle
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

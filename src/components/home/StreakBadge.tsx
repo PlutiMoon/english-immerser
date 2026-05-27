@@ -1,3 +1,5 @@
+import { FlameIcon } from "@/components/icons/AppIcons";
+
 interface Props {
   streak: number;
 }
@@ -19,7 +21,8 @@ export default function StreakBadge({ streak }: Props) {
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${colorMap[tier]}`}
     >
-      🔥 {streak} 天
+      <FlameIcon className="h-3.5 w-3.5" />
+      {streak} 天
     </span>
   );
 }

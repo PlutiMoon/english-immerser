@@ -159,19 +159,3 @@ export interface SavedLoop {
   label: string;
 }
 
-// ============================================================
-// 应用全局数据（游戏存档）
-// ============================================================
-
-export interface AppData {
-  player: {
-    source: MediaSource | null;
-    positions: Record<string, number>;
-    recentSources: MediaSource[];
-    savedLoops: Record<string, SavedLoop[]>;
-  };
-}
-
-export const DEFAULT_APP_DATA: AppData = {
-  player: { source: null, positions: {}, recentSources: [], savedLoops: {} },
-};

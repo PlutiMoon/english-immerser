@@ -7,12 +7,15 @@ import WordForm from "@/components/vocabulary/WordForm";
 import ReviewPanel from "@/components/vocabulary/ReviewPanel";
 import { openFolder } from "@/utils/openFolder";
 import { dataPaths, ensureDataDirs } from "@/utils/dataPath";
+import { formatJsonRecoveryNotice } from "@/utils/recoveryNotice";
+import { SearchIcon } from "@/components/icons/AppIcons";
 import type { VocabularyWord } from "@/types";
+import { usePlayerStore } from "@/stores/playerStore";
 import { useVocabularyStore } from "@/stores/vocabularyStore";
 
 type SortMode = "newest" | "lastReviewed" | "reviewCount";
 
-export default function VocabularyScene({ data, setData, toast, onSceneChange }: SceneProps) {
+export default function VocabularyScene({ toast, onSceneChange }: SceneProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [sortBy, setSortBy] = useState<SortMode>("newest");
@@ -30,6 +33,8 @@ export default function VocabularyScene({ data, setData, toast, onSceneChange }:
   const clearRecovery = useVocabularyStore((s) => s.clearRecovery);
   const pendingWord = useVocabularyStore((s) => s.pendingWord);
   const clearPendingWord = useVocabularyStore((s) => s.clearPendingWord);
+  const setPlayerSource = usePlayerStore((s) => s.setSource);
+  const setPlayerPosition = usePlayerStore((s) => s.setPosition);
 
   useEffect(() => { loadWords(); }, [loadWords]);
 
@@ -51,10 +56,7 @@ export default function VocabularyScene({ data, setData, toast, onSceneChange }:
 
   useEffect(() => {
     if (recovery) {
-      const detail = recovery.backupPath
-        ? `已备份到 ${recovery.backupPath}`
-        : `已跳过 ${recovery.invalidCount} 条异常记录`;
-      toast(`${recovery.label}数据已自动恢复，${detail}`, "warning", 7000);
+      toast(formatJsonRecoveryNotice(recovery), "warning", 7000);
       clearRecovery();
     }
   }, [recovery, clearRecovery, toast]);
@@ -115,20 +117,12 @@ export default function VocabularyScene({ data, setData, toast, onSceneChange }:
       toast("当前词条没有可跳转的媒体来源", "warning");
       return;
     }
-    setData({
-      player: {
-        ...data.player,
-        source: {
-          type: "file",
-          path: word.mediaPath,
-          name: word.source || word.word,
-        },
-        positions: {
-          ...data.player.positions,
-          [word.mediaPath]: word.mediaTimestamp,
-        },
-      },
+    setPlayerSource({
+      type: "file",
+      path: word.mediaPath,
+      name: word.source || word.word,
     });
+    setPlayerPosition(word.mediaPath, word.mediaTimestamp);
     onSceneChange("player");
     toast("已跳转到播放器", "success");
   };
@@ -148,7 +142,7 @@ export default function VocabularyScene({ data, setData, toast, onSceneChange }:
           <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             placeholder="搜索单词或来源..."
             className="w-full rounded-lg border border-gray-200 pl-8 pr-3 py-2 text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100" />
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">🔍</span>
+          <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
         </div>
         <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 focus:outline-none focus:border-primary-400">
