@@ -32,7 +32,7 @@ export default function HistoryList({ history, loaded, onDelete }: HistoryListPr
 
   if (history.length === 0) {
     return (
-      <div className="rounded-xl bg-white border border-gray-100 p-8 text-center">
+      <div className="surface-card p-8 text-center">
         <p className="text-gray-400 text-sm">还没有完成过听写练习</p>
         <p className="text-gray-300 text-xs mt-1">完成一次听写后会自动保存在这里</p>
       </div>
@@ -51,7 +51,7 @@ export default function HistoryList({ history, loaded, onDelete }: HistoryListPr
           return (
             <div
               key={session.id}
-              className="rounded-lg bg-white border border-gray-100 overflow-hidden"
+              className="surface-card overflow-hidden"
             >
               <div className="flex items-center gap-3 px-4 py-3">
                 <button

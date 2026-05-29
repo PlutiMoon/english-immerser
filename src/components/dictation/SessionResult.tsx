@@ -21,7 +21,7 @@ export default function SessionResult({
 }: SessionResultProps) {
   return (
     <div className="space-y-5">
-      <div className="rounded-xl bg-white border border-gray-100 p-5 space-y-4">
+      <div className="surface-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <CheckIcon className="h-5 w-5 text-green-600" />
           <h3 className="text-lg font-semibold text-gray-800">已完成，已保存</h3>

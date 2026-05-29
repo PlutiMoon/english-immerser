@@ -74,7 +74,7 @@ export default function SubtitlePanel({
 
   if (subtitles.length === 0) {
     return (
-      <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 text-center text-sm text-gray-400">
+      <div className="surface-muted p-4 text-center text-sm text-gray-400">
         暂无字幕 — 导入本地媒体时可自动检测同名 .srt / .vtt 文件
       </div>
     );
@@ -105,7 +105,7 @@ export default function SubtitlePanel({
       </div>
 
       {/* Subtitle list */}
-      <div ref={scrollRef} className="max-h-44 overflow-y-auto rounded-xl bg-gray-50 border border-gray-100 p-2 space-y-1">
+      <div ref={scrollRef} className="surface-muted max-h-44 overflow-y-auto p-2 space-y-1">
         {subtitles.map((line, i) => (
           <div key={i} className={`group flex items-center rounded px-3 py-1.5 text-left text-sm transition-colors ${i === activeSubtitleIndex ? "bg-primary-100 text-primary-800 font-medium" : "text-gray-600 hover:bg-gray-100"}`}>
             <button onClick={() => handleClick(line.start)} className="flex-1 text-left min-w-0">

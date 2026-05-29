@@ -68,7 +68,7 @@ export default function WeeklyChart({ data, goalMinutes = 60 }: Props) {
         </div>
       </div>
 
-      <div className="rounded-xl bg-white border border-gray-100 p-4 overflow-x-auto">
+      <div className="surface-card p-4 overflow-x-auto">
         <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full min-w-[400px]" role="img" aria-label="学习时长柱状图">
           {/* Grid + Y labels */}
           {ticks.map(v => {

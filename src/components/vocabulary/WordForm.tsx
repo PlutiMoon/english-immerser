@@ -83,7 +83,7 @@ export default function WordForm({
       onClick={onCancel}
     >
       <div
-        className="rounded-xl bg-white shadow-lg border border-gray-200 p-6 w-full max-w-md mx-4"
+        className="surface-panel p-6 w-full max-w-md mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-gray-800 mb-4">

@@ -28,7 +28,7 @@ export default function ModuleChart({ data }: Props) {
     return (
       <div className="space-y-3">
         <h4 className="text-sm font-medium text-gray-700">模块使用分布</h4>
-        <div className="rounded-xl bg-white border border-gray-100 p-8 text-center">
+        <div className="surface-card p-8 text-center">
           <p className="text-sm text-gray-400">暂无打卡数据，开始学习后这里会显示各模块的使用频率</p>
         </div>
       </div>
@@ -38,7 +38,7 @@ export default function ModuleChart({ data }: Props) {
   return (
     <div className="space-y-3">
       <h4 className="text-sm font-medium text-gray-700">模块使用分布</h4>
-      <div className="rounded-xl bg-white border border-gray-100 p-4 space-y-2">
+      <div className="surface-card p-4 space-y-2">
         {data.map((item) => {
           const pct = Math.round((item.count / total) * 100);
           const barPct = Math.max(2, (item.count / maxCount) * 100);

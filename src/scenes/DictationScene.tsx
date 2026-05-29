@@ -143,7 +143,7 @@ export default function DictationScene({ toast, onSceneChange }: SceneProps) {
   return (
     <div className="space-y-6">
       <PageHeader title="听写与复述小游戏" subtitle="播放→输入关键词→再播放→用自己的话复述" />
-      <div className="rounded-xl bg-white border border-gray-100 p-8 space-y-4">
+      <div className="surface-card p-8 space-y-4">
         <p className="text-sm text-gray-500 text-center">选择一段音频素材开始听写练习</p>
         <div className="flex flex-col items-center gap-3">
           <button onClick={handlePickFile}
@@ -159,7 +159,7 @@ export default function DictationScene({ toast, onSceneChange }: SceneProps) {
             </button>
           )}
         </div>
-        <div className="rounded-lg bg-gray-50 border border-gray-100 p-4 max-w-sm mx-auto">
+        <div className="surface-muted p-4 max-w-sm mx-auto">
           <p className="text-xs font-medium text-gray-600 mb-2">流程说明</p>
           <ol className="text-xs text-gray-500 space-y-1 list-decimal list-inside">
             <li>盲听 — 不写任何东西，专注理解大意</li>

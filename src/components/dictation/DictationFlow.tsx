@@ -141,7 +141,7 @@ export default function DictationFlow({
       </div>
 
       {/* Audio player bar */}
-      <div className="rounded-lg bg-gray-50 border border-gray-100 p-3 flex items-center gap-3">
+      <div className="surface-muted p-3 flex items-center gap-3">
         <button
           onClick={togglePlay}
           className="shrink-0 w-10 h-10 rounded-full bg-primary-500 text-white flex items-center justify-center hover:bg-primary-600 transition-colors"
@@ -177,7 +177,7 @@ export default function DictationFlow({
       </div>
 
       {/* Step content */}
-      <div className="rounded-xl bg-white border border-gray-100 p-5">
+      <div className="surface-card p-5">
         {step === "listen" && (
           <div className="space-y-4 text-center">
             <p className="text-gray-500 text-sm">
@@ -261,7 +261,7 @@ export default function DictationFlow({
               用你自己的英文复述这段内容。不用逐字还原，表达核心意思即可。
             </p>
             {keywords.trim() && (
-              <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
+              <div className="surface-muted p-3">
                 <p className="text-xs text-gray-400 mb-1">关键词提示</p>
                 <p className="text-sm text-gray-600">{keywords}</p>
               </div>

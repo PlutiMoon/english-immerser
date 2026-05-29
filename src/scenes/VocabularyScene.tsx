@@ -180,7 +180,7 @@ export default function VocabularyScene({ toast, onSceneChange }: SceneProps) {
         <ReviewPanel words={words} onClose={() => setReviewing(false)}
           onMarkReviewed={(id) => { markReviewed(id); }} />
       ) : filteredWords.length === 0 ? (
-        <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-12 text-center">
+        <div className="surface-card p-12 text-center">
           {words.length === 0 ? (
             <>
               <p className="text-gray-400">还没有生词，从听力或阅读中遇到不认识的单词就来添加吧</p>

@@ -34,7 +34,7 @@ export default function ReviewPanel({
 
   if (queue.length === 0) {
     return (
-      <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-12 text-center">
+      <div className="surface-card p-12 text-center">
         <p className="text-gray-400">没有可复习的单词</p>
         <button
           onClick={onClose}
@@ -48,7 +48,7 @@ export default function ReviewPanel({
 
   if (index >= queue.length) {
     return (
-      <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-12 text-center">
+      <div className="surface-card p-12 text-center">
         <p className="text-lg font-medium text-gray-700">复习完成!</p>
         <p className="text-sm text-gray-400 mt-1">
           共复习 {queue.length} 张卡片
@@ -77,7 +77,7 @@ export default function ReviewPanel({
   };
 
   return (
-    <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
+    <div className="surface-card p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button

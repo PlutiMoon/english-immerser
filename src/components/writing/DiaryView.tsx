@@ -142,7 +142,7 @@ export default function DiaryView({ toast }: DiaryViewProps) {
           ← 返回今天
         </button>
         <h3 className="text-lg font-semibold text-gray-800">{formatDate(viewingDate)}</h3>
-        <div className="rounded-xl bg-white border border-gray-100 p-5">
+        <div className="surface-card p-5">
           <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{viewingContent}</pre>
         </div>
       </div>

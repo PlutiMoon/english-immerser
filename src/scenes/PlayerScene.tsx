@@ -28,7 +28,7 @@ function MediaVisual({ source }: { source: MediaSource | null }) {
   const isVideo = /\.(mp4|webm|mkv|avi|mov)$/i.test(source.path);
   if (isVideo) return null;
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl bg-gradient-to-b from-primary-50 to-warm-50 p-8 border border-primary-100">
+    <div className="player-visual">
       <HeadphonesIcon className="mb-3 h-14 w-14 text-primary-500" />
       <p className="text-lg font-medium text-gray-800">{source.name}</p>
       <p className="text-xs text-gray-400 mt-1 truncate max-w-full">{source.path}</p>

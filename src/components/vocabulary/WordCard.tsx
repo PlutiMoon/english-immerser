@@ -48,7 +48,7 @@ export default function WordCard({ word, onEdit, onDelete, onTimestampClick }: W
   };
 
   return (
-    <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-4 flex flex-col">
+    <div className="surface-card p-4 flex flex-col">
       {/* Word + actions */}
       <div className="flex items-start justify-between">
         <h4 className="text-lg font-semibold text-gray-800">{word.word}</h4>

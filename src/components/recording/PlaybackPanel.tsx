@@ -55,7 +55,7 @@ export default function PlaybackPanel({
   };
 
   return (
-    <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-4 space-y-3">
+    <div className="surface-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-gray-700">回放录音</p>
         <span className="text-xs text-gray-400">

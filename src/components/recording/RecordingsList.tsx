@@ -25,7 +25,7 @@ export default function RecordingsList({
 
   if (!loaded) {
     return (
-      <div className="rounded-xl bg-gray-50 border border-gray-100 p-6 text-center text-sm text-gray-400">
+      <div className="surface-muted p-6 text-center text-sm text-gray-400">
         加载中...
       </div>
     );
@@ -33,7 +33,7 @@ export default function RecordingsList({
 
   if (history.length === 0) {
     return (
-      <div className="rounded-xl bg-gray-50 border border-gray-100 p-6 text-center text-sm text-gray-400">
+      <div className="surface-muted p-6 text-center text-sm text-gray-400">
         暂无录音 — 录完保存后这里会显示历史记录
       </div>
     );
