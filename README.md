@@ -126,10 +126,10 @@ winget install yt-dlp
 
 ## 发布
 
-当前版本：`0.4.0`
+当前版本：`0.4.1`
 
-- Release notes: [RELEASE_NOTES_0.4.0.md](RELEASE_NOTES_0.4.0.md)
-- Release checklist: [docs/releases/v0.4.0-checklist.md](docs/releases/v0.4.0-checklist.md)
+- Release notes: [RELEASE_NOTES_0.4.1.md](RELEASE_NOTES_0.4.1.md)
+- Release checklist: [docs/releases/v0.4.1-checklist.md](docs/releases/v0.4.1-checklist.md)
 
 ## License
 
