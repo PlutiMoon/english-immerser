@@ -15,9 +15,9 @@ export default function UpdateModal({
 }: UpdateModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+      <div className="surface-panel max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary-500 to-warm-500 px-6 py-4">
+        <div className="bg-gradient-to-r from-primary-500 to-primary-400 px-6 py-4">
           <h3 className="text-lg font-semibold text-white">发现新版本</h3>
           <p className="text-sm text-white/90 mt-1">版本 {version}</p>
         </div>
@@ -38,7 +38,7 @@ export default function UpdateModal({
           <button
             onClick={onCancel}
             disabled={downloading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="button-glass px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             稍后提醒
           </button>

@@ -1,6 +1,6 @@
 export function SkeletonCard() {
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100 animate-pulse">
+    <div className="surface-card p-4 animate-pulse">
       <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
       <div className="h-3 bg-gray-200 rounded w-1/2"></div>
     </div>
@@ -13,7 +13,7 @@ export function SkeletonList({ count = 3 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="rounded-lg bg-white p-4 border border-gray-100 animate-pulse"
+          className="surface-card p-4 animate-pulse"
         >
           <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
           <div className="h-3 bg-gray-200 rounded w-1/2"></div>
@@ -41,7 +41,7 @@ export function SkeletonText({ lines = 3 }: { lines?: number }) {
 
 export function SkeletonStat() {
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100 animate-pulse">
+    <div className="surface-card p-4 animate-pulse">
       <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
       <div className="h-6 bg-gray-200 rounded w-3/4"></div>
     </div>

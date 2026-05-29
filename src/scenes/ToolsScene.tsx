@@ -44,7 +44,7 @@ export default function ToolsScene({ toast }: SceneProps) {
     <div className="space-y-6">
       <PageHeader title="工具与设置" subtitle="备份、恢复和本地文件入口" />
 
-      <section className="rounded-xl bg-white border border-gray-100 p-5 shadow-sm">
+      <section className="surface-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <h3 className="text-sm font-medium text-gray-800">数据备份</h3>
@@ -72,7 +72,7 @@ export default function ToolsScene({ toast }: SceneProps) {
             <button
               onClick={() => importInputRef.current?.click()}
               disabled={backupBusy}
-              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              className="button-glass rounded-lg px-4 py-2 text-xs font-medium disabled:opacity-40"
             >
               导入备份
             </button>
@@ -87,7 +87,7 @@ export default function ToolsScene({ toast }: SceneProps) {
         </div>
       </section>
 
-      <section className="rounded-xl bg-white border border-gray-100 p-5 shadow-sm">
+      <section className="surface-card p-5">
         <h3 className="text-sm font-medium text-gray-800">本地位置</h3>
         <p className="mt-1 text-xs text-gray-500">快速打开数据目录、录音缓存和系统文件夹。</p>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -101,7 +101,7 @@ export default function ToolsScene({ toast }: SceneProps) {
                 toast("打开数据目录失败", "error");
               }
             }}
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            className="button-glass rounded-lg px-4 py-2 text-xs font-medium"
           >
             打开数据目录
           </button>
@@ -114,7 +114,7 @@ export default function ToolsScene({ toast }: SceneProps) {
                 toast("打开缓存目录失败", "error");
               }
             }}
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            className="button-glass rounded-lg px-4 py-2 text-xs font-medium"
           >
             打开缓存目录
           </button>
@@ -128,7 +128,7 @@ export default function ToolsScene({ toast }: SceneProps) {
                 toast("打开写作目录失败", "error");
               }
             }}
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            className="button-glass rounded-lg px-4 py-2 text-xs font-medium"
           >
             打开写作目录
           </button>
@@ -142,14 +142,14 @@ export default function ToolsScene({ toast }: SceneProps) {
                 toast("打开日记目录失败", "error");
               }
             }}
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            className="button-glass rounded-lg px-4 py-2 text-xs font-medium"
           >
             打开日记目录
           </button>
         </div>
       </section>
 
-      <section className="rounded-xl bg-gray-50 border border-gray-100 p-5">
+      <section className="surface-muted p-5">
         <h3 className="text-sm font-medium text-gray-800">版本信息</h3>
         <p className="mt-1 text-xs text-gray-500">当前版本 v0.4.0</p>
       </section>

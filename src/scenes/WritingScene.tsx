@@ -95,10 +95,10 @@ export default function WritingScene({ toast }: SceneProps) {
 
       {/* Tab bar + inline stats */}
       <div className="flex items-center gap-4">
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+        <div className="tab-bar">
           {(["writing", "diary"] as Tab[]).map(t => (
             <button key={t} onClick={() => switchTab(t)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${tab === t ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              className={`tab-item ${tab === t ? "active" : ""}`}>
               {t === "writing" ? "自由写作" : "三句日记"}
             </button>
           ))}
@@ -116,14 +116,14 @@ export default function WritingScene({ toast }: SceneProps) {
       {tab === "writing" ? (
         <div className="grid grid-cols-12 gap-5">
           <div className="col-span-3">
-            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-4 h-full">
+            <div className="surface-card p-4 h-full">
               <FileList files={files} currentFile={currentFile} loading={!loaded}
                 onSelect={selectFile} onDelete={handleDelete}
                 onNew={() => { setCurrentFile(null); setTitle(""); setContent(""); setSaved(true); }} />
             </div>
           </div>
           <div className="col-span-9">
-            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6 h-full">
+            <div className="surface-card p-6 h-full">
               <WritingEditor title={title} content={content} saved={saved} currentFile={currentFile}
                 onTitleChange={setTitle} onContentChange={setContent} onSave={handleSave} />
             </div>
@@ -132,12 +132,12 @@ export default function WritingScene({ toast }: SceneProps) {
       ) : (
         <div className="grid grid-cols-12 gap-5">
           <div className="col-span-8">
-            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
+            <div className="surface-card p-6">
               <DiaryView toast={toast} />
             </div>
           </div>
           <div className="col-span-4">
-            <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-5 space-y-4">
+            <div className="surface-card p-5 space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-gray-700">写作提示</h3>
                 <ul className="mt-2 space-y-1.5 text-xs text-gray-500">

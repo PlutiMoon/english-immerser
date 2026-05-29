@@ -86,7 +86,7 @@ export default function OverviewTab({
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {QUICK_ENTRIES.map(entry => (
             <button key={entry.scene} onClick={() => onSceneChange(entry.scene)}
-              className="flex flex-col items-center gap-2 rounded-xl bg-white p-4 shadow-sm border border-gray-100 text-center transition-colors hover:bg-primary-50 hover:border-primary-200">
+              className="surface-card flex flex-col items-center gap-2 p-4 text-center transition-colors hover:bg-primary-50 hover:border-primary-200">
               <entry.icon className="h-7 w-7 text-primary-600" />
               <span className="text-sm font-medium text-gray-700">{entry.label}</span>
               <span className="text-xs text-gray-400 leading-tight">{entry.desc}</span>
@@ -95,7 +95,7 @@ export default function OverviewTab({
         </div>
       </section>
 
-      <section className="rounded-xl bg-gradient-to-r from-primary-50 to-warm-50 p-5 border border-primary-100">
+      <section className="surface-panel p-5">
         <h3 className="text-sm font-medium text-primary-800">今日建议</h3>
         <p className="mt-2 text-sm text-gray-600 leading-relaxed">
           先打开"沉浸听力"模块，找一段你感兴趣的英文播客或视频，尝试听懂大意；
