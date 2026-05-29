@@ -1,125 +1,135 @@
 # English Immerser
 
-<p align="center">
-  <img src="app-icon.png" alt="app icon" width="128" />
-</p>
+English Immerser 是一款基于 Tauri 的桌面端英语自学软件，核心理念是 **听力带路、兴趣驱动**。它不面向应试刷题，而是帮助你围绕喜欢的音频、视频、写作和复述，养成每天 60-90 分钟的英语输入输出习惯。
 
-<p align="center">
-  <strong>听力带路、兴趣驱动</strong> — 一款帮助你养成每天 60-90 分钟英语学习习惯的桌面应用。
-</p>
-
-<p align="center">
-  <strong>Listening leads, interest drives</strong> — a desktop app for building a daily 60-90 min English immersion habit.
-</p>
-
----
-
-## 功能模块 · Modules
+## 核心功能
 
 | 模块 | 说明 |
-|------|------|
-| 🎧 **沉浸听力** | 播放本地音频/视频，支持倒退 5 秒、AB 循环、字幕导入 |
-| 📖 **习词本** | 生词卡片（单词 + 英文释义 + 自造句子），优先展示自造句子复习 |
-| ✍️ **自由写作 · 三句日记** | Markdown 编辑器 + 每日三句话引导 |
-| 🎙️ **自言自语录音棚** | 麦克风录音即时回放，不上传任何服务器 |
-| 🎯 **听写复述** | 播放 → 输入关键词 → 再播放 → 用自己的话复述 |
-| 📊 **打卡追踪** | 每日打卡 + 连续天数统计，激励持续学习 |
-| 🛠️ **工具与设置** | 本地备份、恢复、数据目录入口 |
+| --- | --- |
+| 沉浸听力与影子跟读 | 播放本地音频/视频、在线音频、播客和 YouTube 来源，支持倒退 5 秒、AB 循环、变速播放和字幕导入。 |
+| 语境习词本 | 记录生词、英文释义、发音、自造句子和来源信息，复习时优先展示自己的句子。 |
+| 自由写作与三句日记 | 极简写作编辑器，每日三句话引导，内置英文写作提示库。 |
+| 自言自语录音棚 | 调用本地麦克风录音并即时回放，录音只保存在本机。 |
+| 听写与复述小游戏 | 播放音频、输入关键词、再次播放，再用自己的话复述。 |
+| 学习统计与打卡 | 记录每日学习时长、模块使用分布、连续打卡和周/月趋势。 |
+| 工具与备份 | 本地数据导出/导入、数据目录入口、录音缓存入口。 |
 
-| Module | Description |
-|--------|-------------|
-| 🎧 **Immersion Listening** | Local audio/video player with -5s skip, A-B loop, subtitle import |
-| 📖 **Vocabulary Notebook** | Word cards with definitions & self-made sentences; review prioritized by context |
-| ✍️ **Writing · 3-Line Diary** | Markdown editor + daily 3-sentence journal prompt |
-| 🎙️ **Recording Studio** | Instant mic recording & playback — nothing uploaded |
-| 🎯 **Dictation & Paraphrase** | Listen → type keywords → re-listen → retell in your own words |
-| 📊 **Check-in Tracker** | Daily check-in + streak stats to keep you going |
+## v0.4 亮点
 
----
+- 新增 Apple / macOS Glass 风格界面。
+- 新增 YouTube 音频与字幕来源，依赖本机 `yt-dlp`。
+- 首页新增学习统计仪表盘。
+- 写作模块新增提示库和更清爽的编辑体验。
+- 播放器来源模块拆分为本地文件、在线链接、播客和 YouTube 面板。
+- 增加 Tauri CSP 安全配置和 UI smoke 测试。
 
-## 技术栈 · Tech Stack
+## 技术栈
 
 | 层 | 技术 |
-|---|------|
-| 桌面框架 / Desktop Framework | Tauri 2.x (Rust + React) |
-| 前端 / Frontend | React 18 + TypeScript |
-| 样式 / Styling | Tailwind CSS |
-| 状态管理 / State | Zustand stores（7 个独立 store） |
-| 场景切换 / Routing | scene 状态机（无 router） |
-| 数据存储 / Storage | 本地 JSON + 文本文件（系统文档目录，不上传服务器） |
-| 自动更新 / Auto-update | Tauri Updater + GitHub Releases |
+| --- | --- |
+| 桌面框架 | Tauri 2.x |
+| 后端 | Rust |
+| 前端 | React 18 + TypeScript |
+| 样式 | Tailwind CSS + 项目内 Apple 风格 surface 工具类 |
+| 状态管理 | Zustand，按模块独立 store |
+| 场景切换 | scene 状态机，无 router |
+| 数据存储 | 本地 JSON + 文本文件 |
+| 自动更新 | Tauri Updater + GitHub Releases |
 
----
+## 开发环境
 
-## 开发 · Development
-
-### 环境要求 · Prerequisites
+需要：
 
 - Node.js 18+
-- Rust toolchain (rustup, cargo)
+- Rust toolchain
 - Windows: Microsoft Visual Studio C++ Build Tools
 
-### 快速开始 · Quick Start
+常用命令：
 
 ```bash
-# 安装依赖
 npm install
-
-# 开发模式（热更新）
+npm run dev
+npm run build
+npm test
 npm run tauri dev
-
-# 打包为安装程序
 npm run tauri build
 ```
 
-### 项目结构 · Project Structure
+Rust 检查：
 
+```bash
+cd src-tauri
+cargo check
 ```
+
+## 项目结构
+
+```text
 English Immerser/
-├── src/                    # React 前端
-│   ├── App.tsx              # 主入口（场景切换 + toast + 更新）
-│   ├── components/         # 组件（按模块分文件夹：player/ vocabulary/ writing/ recording/ dictation/ checkin/ layout/ shared/ icons/）
-│   ├── scenes/             # 场景页面（Hub / Player / Vocabulary / Writing / Recording / Dictation / Tools）
-│   ├── stores/             # Zustand 状态管理（7 个独立 store）
-│   ├── hooks/              # 自定义 Hooks（useDictionary / useMediaRecorder）
-│   ├── types/              # TypeScript 类型定义
-│   └── utils/              # 工具函数（备份 / JSON 存储 / 验证器 / 字幕解析 / 打卡计算 等）
-├── src-tauri/              # Tauri Rust 后端
-│   ├── src/                # Rust 源码
-│   ├── capabilities/       # 权限配置
-│   └── tauri.conf.json     # Tauri 配置
-└── package.json
+├─ src/
+│  ├─ App.tsx                    # 场景切换、toast、更新提示
+│  ├─ app.css                    # 全局样式与 Apple surface 工具类
+│  ├─ components/                # 按模块划分的组件
+│  ├─ scenes/                    # Hub / Player / Vocabulary / Writing 等场景
+│  ├─ stores/                    # Zustand stores
+│  ├─ hooks/                     # 自定义 hooks
+│  ├─ types/                     # TypeScript 类型
+│  └─ utils/                     # 存储、备份、校验、字幕、统计等工具
+├─ src-tauri/
+│  ├─ src/                       # Rust 命令与应用入口
+│  ├─ capabilities/              # Tauri 权限配置
+│  └─ tauri.conf.json            # Tauri 应用配置
+├─ tests/                        # Vitest 测试
+└─ package.json
 ```
 
----
+## 本地数据
 
-## 数据 · Data
+所有用户数据都存储在系统文档目录下的 `English Immerser/` 文件夹，不上传服务器。
 
-所有用户数据存储在系统文档目录下的 `English Immerser/` 文件夹，不上传任何服务器：
-
+```text
+Documents/English Immerser/
+├─ vocabulary.json
+├─ checkin.json
+├─ dictation.json
+├─ podcast_feeds.json
+├─ recordings.json
+├─ diary/YYYY-MM-DD.txt
+├─ writing/
+└─ recordings/
 ```
-文档/English Immerser/
-├── vocabulary.json         # 生词本
-├── checkin.json            # 打卡记录
-├── dictation.json          # 听写记录
-├── podcast_feeds.json      # 自定义播客源
-├── diary/YYYY-MM-DD.txt    # 每日日记
-├── writing/                # 自由写作
-└── recordings/             # 录音文件
+
+JSON 文件读写通过 `src/utils/jsonStorage.ts` 和相关工具封装，包含备份、损坏恢复和无效记录过滤。
+
+## YouTube 支持
+
+YouTube 来源依赖本机安装 `yt-dlp`：
+
+```bash
+pip install yt-dlp
 ```
 
-All user data is stored locally under `English Immerser/` in your system's Documents folder — nothing is ever uploaded.
+或在 Windows 上使用：
 
-### 备份 · Backup
+```powershell
+winget install yt-dlp
+```
 
-- 工具页支持导出单文件 `.json` 备份。
-- 导入前会自动生成当前数据的预备份。
-- 录音备份可按需包含 `.webm` 文件和 `recordings.json`。
-- 备份 schema 版本为 `1`；过旧或过新的备份会提示兼容性问题。
+## 质量检查
 
-Release notes for this version: [RELEASE_NOTES_0.3.0.md](RELEASE_NOTES_0.3.0.md)
+当前主要验证方式：
 
----
+- `npm test`
+- `npm run build`
+- `cargo check`
+- UI smoke test，检查场景注册、侧栏覆盖和 Apple shell 样式
+
+## 发布
+
+当前版本：`0.4.0`
+
+- Release notes: [RELEASE_NOTES_0.4.0.md](RELEASE_NOTES_0.4.0.md)
+- Release checklist: [docs/releases/v0.4.0-checklist.md](docs/releases/v0.4.0-checklist.md)
 
 ## License
 
