@@ -11,6 +11,7 @@ src-tauri/target/
 .vscode/
 .idea/
 .claude/
+.superpowers/
 
 # OS
 .DS_Store
