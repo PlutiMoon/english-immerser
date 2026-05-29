@@ -38,12 +38,12 @@ const SCENE_COMPONENTS: Record<Scene, LazyExoticComponent<ComponentType<ScenePro
 function PageFallback() {
   return (
     <div className="space-y-4 animate-pulse">
-      <div className="h-8 bg-gray-200 rounded w-1/3" />
-      <div className="h-4 bg-gray-200 rounded w-1/2" />
+      <div className="h-8 bg-gray-100 rounded w-1/3" />
+      <div className="h-4 bg-gray-100 rounded w-1/2" />
       <div className="grid grid-cols-3 gap-4 mt-4">
-        <div className="h-20 bg-gray-200 rounded-xl" />
-        <div className="h-20 bg-gray-200 rounded-xl" />
-        <div className="h-20 bg-gray-200 rounded-xl" />
+        <div className="h-20 bg-white rounded-xl shadow-sm border border-gray-100" />
+        <div className="h-20 bg-white rounded-xl shadow-sm border border-gray-100" />
+        <div className="h-20 bg-white rounded-xl shadow-sm border border-gray-100" />
       </div>
     </div>
   );
@@ -103,9 +103,9 @@ export default function App() {
           downloading={downloading}
         />
       )}
-      <div className="flex h-screen w-screen overflow-hidden">
+      <div className="app-shell flex h-screen w-screen overflow-hidden">
         <Sidebar scene={scene} onSceneChange={setScene} />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+        <main className="app-main flex-1 overflow-y-auto p-6">
           <div className="animate-fade-in">
             <ErrorBoundary>
               <Suspense fallback={<PageFallback />}>

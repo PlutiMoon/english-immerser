@@ -5,11 +5,11 @@ interface Props {
 }
 
 const MODULE_COLORS: Record<string, string> = {
-  player: "#ed9317",     // primary-500
-  vocabulary: "#f07d3b", // warm-500
-  writing: "#924913",    // primary-800
-  recording: "#c24d1a",  // warm-700
-  dictation: "#f5c573",  // primary-300
+  player: "#007aff",
+  vocabulary: "#34c759",
+  writing: "#5856d6",
+  recording: "#ff3b30",
+  dictation: "#5ac8fa",
 };
 
 const MODULE_ICONS: Record<string, string> = {

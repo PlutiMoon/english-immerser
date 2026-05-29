@@ -6,12 +6,12 @@ interface Props {
   goalMinutes?: number;
 }
 
-// Tailwind primary / warm palette
-const C_BAR_FILL = "#fdf0d5";      // primary-100
-const C_BAR_TODAY = "#f5c573";     // primary-300
-const C_BAR_GOAL = "#ed9317";      // primary-500
-const C_BAR_STROKE = "#dd780d";    // primary-600
-const C_GOAL_LINE = "#f07d3b";     // warm-500
+// Apple-style blue palette
+const C_BAR_FILL = "#d9ecff";      // primary-100
+const C_BAR_TODAY = "#8bc7ff";     // primary-300
+const C_BAR_GOAL = "#007aff";      // primary-500
+const C_BAR_STROKE = "#006ee6";    // primary-600
+const C_GOAL_LINE = "#34c759";     // system green
 const C_GRID = "#f3f4f6";          // gray-100
 const C_TEXT = "#9ca3af";          // gray-400
 const C_TEXT_DARK = "#4b5563";     // gray-600
